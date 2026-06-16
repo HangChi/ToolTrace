@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { inspectFailures } from "./failure-inspector";
+
 export const dynamic = "force-dynamic";
 
 type TraceEvent = {
@@ -42,6 +44,7 @@ export default async function RunDetailPage({
   const totalTokens = events.reduce((sum, event) => sum + (event.metadata?.tokenUsage?.total ?? 0), 0);
   const totalDurationMs = events.reduce((sum, event) => sum + (event.durationMs ?? 0), 0);
   const failedEvents = events.filter((event) => event.status === "error").length;
+  const failureInsights = inspectFailures(events);
 
   return (
     <main className="min-h-screen">
@@ -84,6 +87,26 @@ export default async function RunDetailPage({
             <SummaryRow label="Failed steps" value={failedEvents.toString()} />
             <SummaryRow label="Token usage" value={totalTokens.toLocaleString()} />
           </dl>
+
+          <div className="mt-6 border-t border-stone-200 pt-4">
+            <h2 className="text-sm font-semibold text-stone-950">Failure inspector</h2>
+            {failureInsights.length > 0 ? (
+              <div className="mt-3 space-y-3">
+                {failureInsights.map((insight) => (
+                  <div key={`${insight.eventName}-${insight.title}`} className="border border-red-100 bg-red-50 px-3 py-3">
+                    <div className="text-sm font-semibold text-red-950">{insight.title}</div>
+                    <div className="mt-1 text-xs text-red-800">
+                      {insight.eventName} · {insight.eventType}
+                    </div>
+                    <p className="mt-2 text-sm text-red-900">{insight.reason}</p>
+                    <p className="mt-2 text-sm text-red-950">{insight.suggestion}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-stone-500">No failed steps detected for this run.</p>
+            )}
+          </div>
         </aside>
       </section>
     </main>
