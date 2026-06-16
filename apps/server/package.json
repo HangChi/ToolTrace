@@ -8,12 +8,15 @@
     "build": "tsc -p tsconfig.json",
     "db:init": "tsx src/init-db.ts",
     "dev": "tsx src/index.ts",
+    "smoke": "tsx src/smoke.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@hono/node-server": "^1.19.7",
     "@tooltrace/schema": "workspace:*",
     "better-sqlite3": "^12.5.0",
-    "drizzle-orm": "^0.45.1"
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.11.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
