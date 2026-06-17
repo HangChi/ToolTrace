@@ -61,7 +61,7 @@ function runInstall(argv: string[]) {
 }
 
 function parseTarget(value: string | undefined): HookTarget {
-  if (value === "codex") {
+  if (value === "codex" || value === "claude-code") {
     return value;
   }
 
@@ -250,6 +250,7 @@ Commands:
 
 Targets:
   codex      Codex CLI (~/.codex/hooks.json)
+  claude-code  Claude Code (~/.claude/settings.json)
 `);
 }
 
@@ -258,6 +259,7 @@ function printInstallHelp() {
 
 Targets:
   codex                  Codex CLI (~/.codex/hooks.json)
+  claude-code            Claude Code (~/.claude/settings.json)
 
 Options:
   --scope <scope>        Config scope, default user (only user is supported)
@@ -266,6 +268,7 @@ Options:
 
 Environment:
   CODEX_HOME                Codex config directory override
+  CLAUDE_CONFIG_DIR         Claude Code config directory override
   TOOLTRACE_COLLECTOR_URL   Default collector base URL
 
 A timestamped .tooltrace-backup file is created before the config is changed.

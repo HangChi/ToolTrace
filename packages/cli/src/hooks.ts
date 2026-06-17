@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-export type HookTarget = "codex";
+export type HookTarget = "codex" | "claude-code";
 
 export type RedactionLevel = "metadata";
 
@@ -45,7 +45,8 @@ const HOOK_EVENTS: HookEvent[] = [
 ];
 
 const INTEGRATION_PATHS: Record<HookTarget, string> = {
-  codex: "/integrations/codex/hook"
+  codex: "/integrations/codex/hook",
+  "claude-code": "/integrations/claude-code/hook"
 };
 
 export function resolveSettingsPath(target: HookTarget): string {
@@ -53,6 +54,12 @@ export function resolveSettingsPath(target: HookTarget): string {
     const home = process.env.CODEX_HOME ?? join(homedir(), ".codex");
 
     return join(home, "hooks.json");
+  }
+
+  if (target === "claude-code") {
+    const dir = process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude");
+
+    return join(dir, "settings.json");
   }
 
   throw new Error(`Unsupported hook target: ${target}`);
