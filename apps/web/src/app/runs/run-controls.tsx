@@ -29,6 +29,7 @@ export function RefreshButton({
     <Button
       variant="outline"
       size="sm"
+      className="w-fit"
       onClick={() => startTransition(() => router.refresh())}
       disabled={isPending}
     >
@@ -84,16 +85,17 @@ export function DeleteRunButton({
   return (
     <>
       <Button
-        variant="outline"
-        size="sm"
-        className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+        variant="ghost"
+        size="icon-sm"
+        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
         onClick={() => {
           setError(null);
           setOpen(true);
         }}
+        aria-label={label}
+        title={label}
       >
         <Trash2 className="h-3.5 w-3.5" aria-hidden />
-        {label}
       </Button>
 
       <Dialog open={open} onOpenChange={(next) => { if (!next) close(); }}>
@@ -109,7 +111,7 @@ export function DeleteRunButton({
             </p>
           ) : null}
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" size="sm" disabled={isPending} onClick={close}>
               {cancelLabel}
             </Button>

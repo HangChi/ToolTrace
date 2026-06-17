@@ -14,7 +14,7 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 border-t border-destructive/30 bg-destructive/10 px-4 py-4 text-sm",
+        "flex items-start gap-3 border-t border-destructive/25 bg-destructive/10 px-5 py-4 text-sm",
         className
       )}
     >
@@ -24,7 +24,7 @@ export function ErrorState({
       />
       <div>
         <p className="font-medium text-destructive">{copy[locale].common.unavailable}</p>
-        <p className="mt-1 break-words font-mono text-xs text-destructive/80">{message}</p>
+        <p className="mt-1 break-words font-mono text-xs leading-5 text-destructive/80">{message}</p>
       </div>
     </div>
   );

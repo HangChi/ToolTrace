@@ -4,17 +4,17 @@ import { languageLabels, localizedHref, type Locale } from "~/lib/i18n";
 
 export function LanguageSwitcher({ locale, path }: { locale: Locale; path: string }) {
   return (
-    <div className="inline-flex rounded-md border border-border bg-muted p-1 text-xs">
+    <div className="inline-flex h-8 rounded-md border border-border bg-card p-0.5 text-xs shadow-sm">
       {(["zh", "en"] as const).map((entry) => {
         const active = entry === locale;
         return (
           <Link
             key={entry}
             className={cn(
-              "rounded-sm px-3 py-1 font-medium transition-colors",
+              "inline-flex items-center rounded-sm px-3 font-medium transition-colors",
               active
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:bg-background hover:text-foreground"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
             href={localizedHref(path, entry)}
           >

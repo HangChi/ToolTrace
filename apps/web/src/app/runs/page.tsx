@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, AlertCircle, Cpu, Play } from "lucide-react";
+import { Activity, AlertCircle, Cpu, Play, Server } from "lucide-react";
 
 import { EmptyState, ErrorState, LanguageSwitcher, SourceBadge, StatusBadge } from "~/components";
 import { Card, CardContent } from "~/components/ui/card";
@@ -79,52 +79,59 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
   return (
     <main id="main-content" className="min-h-screen bg-background">
       <AutoRefresh />
-      <header className="border-b border-border/40 bg-card/60 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-6 py-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-[10px] font-bold text-primary-foreground">
-                  TT
+      <header className="border-b border-border bg-card/95">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                  <Activity className="h-4 w-4" aria-hidden />
                 </span>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                  ToolTrace
-                </p>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-primary">ToolTrace</p>
+                  <h1 className="text-xl font-semibold text-foreground">{text.runs.title}</h1>
+                </div>
               </div>
-              <h1 className="mt-3 text-2xl font-bold tracking-tight text-foreground">
-                {text.runs.title}
-              </h1>
-              <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {text.runs.subtitle}
               </p>
             </div>
-            <div className="flex flex-col gap-3 md:items-end">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end">
               <LanguageSwitcher locale={locale} path="/runs" />
-              <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-muted/30 px-3 py-2">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                <span className="text-xs font-medium text-foreground">{text.common.collector}</span>
-                <span className="font-mono text-xs text-muted-foreground">{collectorUrl}</span>
+              <div
+                className="inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-border bg-background px-3 text-xs shadow-sm"
+                title={collectorUrl}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-status-success" />
+                <Server className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                <span className="font-medium text-foreground">{text.common.collector}</span>
+                <span className="max-w-[220px] truncate font-mono text-muted-foreground">
+                  {collectorUrl}
+                </span>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-6 py-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label={text.runs.allRuns} value={totalRuns} icon={Activity} accent="sky" />
           <MetricCard label={text.runs.agentSource} value={agentRuns} icon={Cpu} accent="teal" />
           <MetricCard label={text.runs.running} value={runningRuns} icon={Play} accent="amber" />
           <MetricCard label={text.runs.errors} value={failedRuns} icon={AlertCircle} accent="red" />
         </div>
 
-        <Card className="mt-6 overflow-hidden border-border/40 shadow-sm">
-          <div className="flex items-center justify-between gap-4 px-5 py-3">
-            <div className="flex items-center gap-3">
-              <h2 className="text-sm font-semibold text-foreground">{text.runs.recent}</h2>
-              <span className="inline-flex h-5 items-center rounded-full border border-border/40 px-2 text-[11px] text-muted-foreground tabular-nums">
-                {totalRuns}
-              </span>
+        <Card className="mt-5 overflow-hidden border-border bg-card py-0 shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-foreground">{text.runs.recent}</h2>
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-border bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
+                  {totalRuns}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{text.runs.latest}</p>
             </div>
             <RefreshButton label={text.runs.refresh} refreshingLabel={text.runs.refreshing} />
           </div>
@@ -134,54 +141,51 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
             <EmptyState locale={locale} title={text.runs.emptyTitle} body={text.runs.emptyBody} />
           ) : null}
           {!error && runs.length > 0 ? (
-            <div className="overflow-x-auto border-t border-border/40">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-border/30 bg-muted/30 hover:bg-muted/30">
-                    <TableHead className="h-9 pl-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <TableRow className="border-border bg-muted/60 hover:bg-muted/60">
+                    <TableHead className="h-10 min-w-[260px] pl-5 text-xs font-semibold text-muted-foreground">
                       {text.runs.tableRun}
                     </TableHead>
-                    <TableHead className="h-9 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="h-10 min-w-[150px] text-xs font-semibold text-muted-foreground">
                       {text.runs.tableSource}
                     </TableHead>
-                    <TableHead className="h-9 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="h-10 min-w-[130px] text-xs font-semibold text-muted-foreground">
                       {text.runs.tableStatus}
                     </TableHead>
-                    <TableHead className="h-9 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="h-10 min-w-[220px] text-xs font-semibold text-muted-foreground">
                       {text.runs.tableTracked}
                     </TableHead>
-                    <TableHead className="h-9 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="h-10 min-w-[130px] text-xs font-semibold text-muted-foreground">
                       {text.runs.tableTokens}
                     </TableHead>
-                    <TableHead className="h-9 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="h-10 min-w-[190px] text-xs font-semibold text-muted-foreground">
                       {text.runs.tableStarted}
                     </TableHead>
-                    <TableHead className="h-9 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="h-10 min-w-[100px] text-xs font-semibold text-muted-foreground">
                       {text.runs.tableDuration}
                     </TableHead>
-                    <TableHead className="h-9 pr-5" />
+                    <TableHead className="h-10 w-12 pr-5" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {runs.map((run, i) => (
+                  {runs.map((run) => (
                     <TableRow
                       key={run.id}
-                      className={cn(
-                        "group border-border/20 transition-colors hover:bg-muted/20",
-                        i === runs.length - 1 && "border-b-0"
-                      )}
+                      className="group border-border/70 transition-colors hover:bg-accent/35"
                     >
                       <TableCell className="py-3 pl-5">
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                           <StatusDot status={run.status} />
                           <div className="min-w-0">
                             <Link
-                              className="block truncate text-sm font-medium text-foreground decoration-muted-foreground/20 underline-offset-4 transition-colors hover:text-primary hover:underline"
+                              className="block max-w-[280px] truncate text-sm font-semibold text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                               href={localizedHref(`/runs/${run.id}`, locale)}
                             >
                               {run.name}
                             </Link>
-                            <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground/50">
+                            <p className="mt-0.5 max-w-[280px] truncate font-mono text-[11px] text-muted-foreground">
                               {run.id}
                             </p>
                           </div>
@@ -193,7 +197,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                       <TableCell className="py-3">
                         <StatusBadge status={run.status} locale={locale} />
                         {run.error ? (
-                          <div className="mt-1 max-w-[180px] truncate font-mono text-[11px] text-destructive/80">
+                          <div className="mt-1 max-w-[220px] truncate font-mono text-[11px] text-destructive">
                             {run.error}
                           </div>
                         ) : null}
@@ -212,7 +216,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                           className={cn(
                             "text-[13px] tabular-nums",
                             run.status === "running"
-                              ? "font-medium text-amber-600 dark:text-amber-400"
+                              ? "font-medium text-status-warning"
                               : "text-muted-foreground"
                           )}
                         >
@@ -247,10 +251,10 @@ function StatusDot({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        "h-2 w-2 shrink-0 rounded-full",
-        status === "success" && "bg-emerald-500",
-        status === "error" && "bg-red-500",
-        status === "running" && "animate-pulse bg-amber-500"
+        "h-2.5 w-2.5 shrink-0 rounded-full border border-card shadow-[0_0_0_3px_var(--muted)]",
+        status === "success" && "bg-status-success",
+        status === "error" && "bg-status-error",
+        status === "running" && "animate-pulse bg-status-warning"
       )}
     />
   );
@@ -296,29 +300,24 @@ function MetricCard({
   accent: "sky" | "teal" | "amber" | "red";
 }) {
   const accents = {
-    sky: "border-l-sky-500 bg-sky-50/60 dark:bg-sky-950/30 dark:border-l-sky-400",
-    teal: "border-l-teal-500 bg-teal-50/60 dark:bg-teal-950/30 dark:border-l-teal-400",
-    amber: "border-l-amber-500 bg-amber-50/60 dark:bg-amber-950/30 dark:border-l-amber-400",
-    red: "border-l-red-500 bg-red-50/60 dark:bg-red-950/30 dark:border-l-red-400"
-  };
-  const iconColors = {
-    sky: "text-sky-600 dark:text-sky-400",
-    teal: "text-teal-600 dark:text-teal-400",
-    amber: "text-amber-600 dark:text-amber-400",
-    red: "text-red-600 dark:text-red-400"
+    sky: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/35 dark:text-sky-300 dark:border-sky-900",
+    teal: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/35 dark:text-teal-300 dark:border-teal-900",
+    amber:
+      "bg-status-warning-subtle text-status-warning border-status-warning-border",
+    red: "bg-status-error-subtle text-status-error border-status-error-border"
   };
 
   return (
-    <Card className={cn("overflow-hidden rounded-xl border-l-4 border-border/40 shadow-sm", accents[accent])}>
-      <CardContent className="flex items-center justify-between px-4 py-4">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-bold tracking-tight text-foreground tabular-nums">
-            {value}
-          </p>
-        </div>
-        <div className={cn("rounded-lg bg-background/60 p-2", iconColors[accent])}>
-          <Icon className="h-5 w-5" />
+    <Card className="border-border bg-card py-0 shadow-sm">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <p className="mt-1 text-2xl font-semibold text-foreground tabular-nums">{value}</p>
+          </div>
+          <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg border", accents[accent])}>
+            <Icon className="h-4 w-4" />
+          </span>
         </div>
       </CardContent>
     </Card>
@@ -336,7 +335,7 @@ function SourceCell({ metadata, locale }: { metadata?: AgentMetadata; locale: Lo
     <div>
       <SourceBadge agent={agent} locale={locale} />
       {details.length > 0 ? (
-        <div className="mt-1 font-mono text-[11px] text-muted-foreground/50">
+        <div className="mt-1 font-mono text-[11px] text-muted-foreground">
           {details.join(" / ")}
         </div>
       ) : null}
@@ -346,7 +345,7 @@ function SourceCell({ metadata, locale }: { metadata?: AgentMetadata; locale: Lo
 
 function SummaryCell({ summary, locale }: { summary?: RunSummary; locale: Locale }) {
   if (!summary || getSummaryTotal(summary) === 0) {
-    return <span className="text-[13px] text-muted-foreground/40">-</span>;
+    return <span className="text-[13px] text-muted-foreground">-</span>;
   }
 
   const counts = [
@@ -368,14 +367,14 @@ function SummaryCell({ summary, locale }: { summary?: RunSummary; locale: Locale
         {counts.map((item) => (
           <span
             key={item}
-            className="rounded-md border border-border/50 bg-muted/40 px-1.5 py-0.5 text-[11px] text-muted-foreground"
+            className="rounded-md border border-border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
           >
             {item}
           </span>
         ))}
       </div>
       {examples.length > 0 ? (
-        <div className="mt-1 max-w-[260px] truncate font-mono text-[11px] text-muted-foreground/70">
+        <div className="mt-1 max-w-[260px] truncate font-mono text-[11px] text-muted-foreground">
           {examples.join(" / ")}
         </div>
       ) : null}
@@ -387,13 +386,13 @@ function TokenCell({ tokenUsage }: { tokenUsage?: RunSummary["tokenUsage"] }) {
   const total = tokenUsage?.total ?? 0;
 
   if (total === 0) {
-    return <span className="text-[13px] text-muted-foreground/40">-</span>;
+    return <span className="text-[13px] text-muted-foreground">-</span>;
   }
 
   return (
     <div className="font-mono text-xs tabular-nums">
       <div className="font-semibold text-foreground">{total.toLocaleString()}</div>
-      <div className="text-[11px] text-muted-foreground/60">
+      <div className="text-[11px] text-muted-foreground">
         in {(tokenUsage?.input ?? 0).toLocaleString()} / out{" "}
         {(tokenUsage?.output ?? 0).toLocaleString()}
       </div>
