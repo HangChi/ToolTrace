@@ -167,7 +167,8 @@ function RunsTable({ runs, locale }: { runs: Run[]; locale: Locale }) {
                   runId={run.id}
                   label={text.runs.delete}
                   deletingLabel={text.runs.deleting}
-                  promptText={text.runs.confirmPrompt}
+                  title={text.runs.confirmPrompt}
+                  description={text.runs.confirmDelete}
                   confirmLabel={text.runs.confirm}
                   cancelLabel={text.runs.cancel}
                   failedText={text.runs.deleteFailed}

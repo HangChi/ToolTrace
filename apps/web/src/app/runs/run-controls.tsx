@@ -28,7 +28,8 @@ export function DeleteRunButton({
   runId,
   label,
   deletingLabel,
-  promptText,
+  title,
+  description,
   confirmLabel,
   cancelLabel,
   failedText
@@ -36,81 +37,92 @@ export function DeleteRunButton({
   runId: string;
   label: string;
   deletingLabel: string;
-  promptText: string;
+  title: string;
+  description: string;
   confirmLabel: string;
   cancelLabel: string;
   failedText: string;
 }) {
-  const [confirming, setConfirming] = useState(false);
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const baseButton =
-    "inline-flex h-7 items-center border px-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60";
+  const close = () => {
+    if (isPending) {
+      return;
+    }
 
-  if (confirming || isPending) {
-    return (
-      <div className="inline-flex flex-col items-end gap-1">
-        <div className="inline-flex items-center gap-1">
-          <span className="text-xs text-stone-500">{promptText}</span>
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => {
-              setError(null);
-              startTransition(async () => {
-                const result = await deleteRunAction(runId);
-
-                if (result.ok) {
-                  setConfirming(false);
-                } else {
-                  setError(result.error ?? "");
-                  setConfirming(false);
-                }
-              });
-            }}
-            className={`${baseButton} border-red-300 bg-red-600 text-white hover:bg-red-700`}
-          >
-            {isPending ? deletingLabel : confirmLabel}
-          </button>
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => setConfirming(false)}
-            className={`${baseButton} border-stone-200 bg-white text-stone-600 hover:bg-stone-100`}
-          >
-            {cancelLabel}
-          </button>
-        </div>
-        {error ? (
-          <span className="text-xs text-red-600">
-            {failedText}
-            {error}
-          </span>
-        ) : null}
-      </div>
-    );
-  }
+    setOpen(false);
+    setError(null);
+  };
 
   return (
-    <div className="inline-flex flex-col items-end gap-1">
+    <>
       <button
         type="button"
         onClick={() => {
           setError(null);
-          setConfirming(true);
+          setOpen(true);
         }}
-        className={`${baseButton} border-red-200 bg-white text-red-700 hover:bg-red-50`}
+        className="inline-flex h-7 items-center border border-red-200 bg-white px-2 text-xs font-medium text-red-700 transition hover:bg-red-50"
       >
         {label}
       </button>
-      {error ? (
-        <span className="text-xs text-red-600">
-          {failedText}
-          {error}
-        </span>
+
+      {open ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/40 p-4"
+          onClick={close}
+        >
+          <div
+            className="w-full max-w-sm border border-stone-200 bg-white p-5 text-left shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold text-stone-950">{title}</h3>
+            <p className="mt-2 text-sm text-stone-600">{description}</p>
+
+            {error ? (
+              <p className="mt-3 border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {failedText}
+                {error}
+              </p>
+            ) : null}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={close}
+                className="inline-flex h-8 items-center border border-stone-200 bg-white px-3 text-xs font-medium text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cancelLabel}
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  setError(null);
+                  startTransition(async () => {
+                    const result = await deleteRunAction(runId);
+
+                    if (result.ok) {
+                      setOpen(false);
+                    } else {
+                      setError(result.error ?? "");
+                    }
+                  });
+                }}
+                className="inline-flex h-8 items-center border border-red-600 bg-red-600 px-3 text-xs font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isPending ? deletingLabel : confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
-    </div>
+    </>
   );
 }
 
