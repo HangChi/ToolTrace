@@ -23,6 +23,48 @@ export interface InstallResult {
   events: string[];
 }
 
+export interface UninstallResult {
+  target: HookTarget;
+  path: string;
+  backupPath?: string;
+  removed: number;
+  changed: boolean;
+}
+
+export function uninstallHooks(target: HookTarget): UninstallResult {
+  const path = resolveSettingsPath(target);
+
+  if (!existsSync(path)) {
+    return { target, path, removed: 0, changed: false };
+  }
+
+  const config = readJsonObject(path);
+  const hooks = asObject(config.hooks);
+
+  if (!hooks) {
+    return { target, path, removed: 0, changed: false };
+  }
+
+  const removed = removeManagedEntries(hooks);
+
+  if (removed === 0) {
+    return { target, path, removed: 0, changed: false };
+  }
+
+  dropEmptyEventArrays(hooks);
+
+  if (Object.keys(hooks).length === 0) {
+    delete config.hooks;
+  } else {
+    config.hooks = hooks;
+  }
+
+  const backupPath = backupIfExists(path);
+  writeJsonObject(path, config);
+
+  return { target, path, backupPath, removed, changed: true };
+}
+
 // Marks the matcher groups that ToolTrace owns so that repeated installs and
 // uninstalls only ever touch our own entries, never the user's custom hooks.
 const MANAGED_MARKER = "tooltraceManaged";

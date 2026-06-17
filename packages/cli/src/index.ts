@@ -4,6 +4,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 
 import {
   installHooks,
+  uninstallHooks,
   type HookScope,
   type HookTarget,
   type RedactionLevel
@@ -31,6 +32,11 @@ if (command === "install") {
   process.exit(0);
 }
 
+if (command === "uninstall") {
+  runUninstall(process.argv.slice(3));
+  process.exit(0);
+}
+
 console.error(`Unknown command: ${command}`);
 printHelp();
 process.exit(1);
@@ -54,6 +60,31 @@ function runInstall(argv: string[]) {
   console.log(`Collector: ${result.collectorUrl}`);
   console.log(`Redaction: ${result.redaction}`);
   console.log(`Events: ${result.events.join(", ")}`);
+
+  if (result.backupPath) {
+    console.log(`Backup: ${result.backupPath}`);
+  }
+}
+
+function runUninstall(argv: string[]) {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    printUninstallHelp();
+    return;
+  }
+
+  const { positionals } = parseFlags(argv);
+  const target = parseTarget(positionals[0]);
+
+  const result = uninstallHooks(target);
+
+  if (!result.changed) {
+    console.log(`No ToolTrace tracing hooks found for ${target}.`);
+    console.log(`Config: ${result.path}`);
+    return;
+  }
+
+  console.log(`Removed ${result.removed} ToolTrace tracing hook entries for ${target}.`);
+  console.log(`Config: ${result.path}`);
 
   if (result.backupPath) {
     console.log(`Backup: ${result.backupPath}`);
@@ -243,10 +274,12 @@ function printHelp() {
 Usage:
   tooltrace dev
   tooltrace install <target> [options]
+  tooltrace uninstall <target>
 
 Commands:
   dev        Start the local collector and dashboard
   install    Install global agent tracing hooks
+  uninstall  Remove ToolTrace-managed tracing hooks
 
 Targets:
   codex      Codex CLI (~/.codex/hooks.json)
@@ -273,6 +306,19 @@ Environment:
 
 A timestamped .tooltrace-backup file is created before the config is changed.
 Re-running install is safe; it replaces only the ToolTrace-managed entries.
+`);
+}
+
+function printUninstallHelp() {
+  console.log(`tooltrace uninstall <target>
+
+Targets:
+  codex                  Codex CLI (~/.codex/hooks.json)
+  claude-code            Claude Code (~/.claude/settings.json)
+
+Removes only the ToolTrace-managed hook entries. User-defined hooks and other
+config keys are left untouched. A timestamped .tooltrace-backup file is created
+before the config is changed.
 `);
 }
 
