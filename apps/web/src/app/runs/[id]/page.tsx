@@ -104,7 +104,7 @@ export default async function RunDetailPage({
     <main id="main-content" className="min-h-screen bg-background">
       <AutoRefresh />
       <header className="border-b border-border bg-card/95">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3">
             <Button variant="ghost" size="sm" className="-ml-2" asChild>
               <Link href={localizedHref("/runs", locale)}>
@@ -131,7 +131,7 @@ export default async function RunDetailPage({
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
+      <section className="mx-auto grid max-w-[1800px] gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
         <Card className="overflow-hidden border-border bg-card py-0 shadow-sm">
           <div className="border-b border-border px-5 py-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -323,7 +323,7 @@ function Timeline({ events, locale }: { events: TraceEvent[]; locale: Locale }) 
                   </div>
                 ) : null}
               </div>
-              <div className="max-w-[220px] shrink-0 truncate font-mono text-[10px] text-muted-foreground">
+              <div className="max-w-[360px] shrink-0 break-all text-right font-mono text-[10px] text-muted-foreground">
                 {event.id}
               </div>
             </div>
@@ -454,7 +454,7 @@ function MetadataBadge({ value }: { value: string }) {
 }
 
 function TraceId({ label, value }: { label: string; value: string }) {
-  return <span className="max-w-[220px] truncate">{label}:{value}</span>;
+  return <span className="break-all">{label}:{value}</span>;
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
