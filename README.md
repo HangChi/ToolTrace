@@ -90,6 +90,30 @@ try {
 
 Tracing failures are swallowed by the SDK so the user's agent flow is not changed by collector availability.
 
+## Global Tracing Hooks
+
+Instead of editing config files by hand, ToolTrace can install global tracing hooks for Codex and Claude Code. The hooks forward lifecycle, prompt, and tool events to the local collector.
+
+```bash
+pnpm --filter @tooltrace/cli build
+
+node packages/cli/dist/index.js install codex --scope user --redaction metadata
+node packages/cli/dist/index.js install claude-code --scope user --redaction metadata
+```
+
+Remove them again with:
+
+```bash
+node packages/cli/dist/index.js uninstall codex
+node packages/cli/dist/index.js uninstall claude-code
+```
+
+- `install codex` writes a ToolTrace-managed block into `~/.codex/hooks.json`.
+- `install claude-code` writes a ToolTrace-managed block into `~/.claude/settings.json`.
+- A timestamped `.tooltrace-backup.<timestamp>` file is created before any change.
+- Re-running install is idempotent, and uninstall removes only ToolTrace-managed entries, leaving your own hooks untouched.
+- `CODEX_HOME` and `CLAUDE_CONFIG_DIR` override the config directories; `TOOLTRACE_COLLECTOR_URL` (or `--collector-url`) overrides the collector base URL.
+
 ## Workspace
 
 ```text

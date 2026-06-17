@@ -90,6 +90,30 @@ try {
 
 SDK 会吞掉 tracing 自身的失败，所以 collector 不可用时也不会改变用户 Agent 的主流程。
 
+## 全局 Tracing Hooks
+
+无需手工编辑配置文件，ToolTrace 可以为 Codex 和 Claude Code 安装全局 tracing hooks，把生命周期、prompt 和工具事件转发到本地 collector。
+
+```bash
+pnpm --filter @tooltrace/cli build
+
+node packages/cli/dist/index.js install codex --scope user --redaction metadata
+node packages/cli/dist/index.js install claude-code --scope user --redaction metadata
+```
+
+卸载：
+
+```bash
+node packages/cli/dist/index.js uninstall codex
+node packages/cli/dist/index.js uninstall claude-code
+```
+
+- `install codex` 会在 `~/.codex/hooks.json` 写入 ToolTrace 管理块。
+- `install claude-code` 会在 `~/.claude/settings.json` 写入 ToolTrace 管理块。
+- 修改前会创建带时间戳的 `.tooltrace-backup.<timestamp>` 备份。
+- 重复执行 install 是幂等的；uninstall 只移除 ToolTrace 管理块，不会动你自己的 hooks。
+- `CODEX_HOME` 和 `CLAUDE_CONFIG_DIR` 可覆盖配置目录；`TOOLTRACE_COLLECTOR_URL`（或 `--collector-url`）可覆盖 collector 地址。
+
 ## 工作区结构
 
 ```text
