@@ -28,6 +28,16 @@ export const tokenUsageSchema = z.object({
 
 export const traceMetadataSchema = z
   .object({
+    agent: z.string().optional(),
+    surface: z.string().optional(),
+    sessionId: z.string().optional(),
+    turnId: z.string().optional(),
+    promptId: z.string().optional(),
+    toolUseId: z.string().optional(),
+    hookEvent: z.string().optional(),
+    permissionMode: z.string().optional(),
+    cwd: z.string().optional(),
+    redactionLevel: z.string().optional(),
     provider: z.string().optional(),
     model: z.string().optional(),
     tokenUsage: tokenUsageSchema.optional()
@@ -61,7 +71,8 @@ export const runSchema = z.object({
   endedAt: z.string().datetime().optional(),
   input: z.unknown().optional(),
   output: z.unknown().optional(),
-  error: z.string().optional()
+  error: z.string().optional(),
+  metadata: traceMetadataSchema.optional()
 });
 
 export const createRunSchema = runSchema.extend({
