@@ -90,6 +90,39 @@ try {
 
 Tracing failures are swallowed by the SDK so the user's agent flow is not changed by collector availability.
 
+## Global Tracing Hooks
+
+Instead of editing config files by hand, ToolTrace can install global tracing hooks for Codex and Claude Code. The hooks forward lifecycle, prompt, and tool events to the local collector.
+
+```bash
+pnpm --filter @tooltrace/cli build
+
+node packages/cli/dist/index.js install codex --scope user --redaction metadata
+node packages/cli/dist/index.js install claude-code --scope user --redaction metadata
+```
+
+Remove them again with:
+
+```bash
+node packages/cli/dist/index.js uninstall codex
+node packages/cli/dist/index.js uninstall claude-code
+```
+
+- `install codex` writes a ToolTrace-managed block into `~/.codex/hooks.json`.
+- `install claude-code` writes a ToolTrace-managed block into `~/.claude/settings.json`.
+- A timestamped `.tooltrace-backup.<timestamp>` file is created before any change.
+- Re-running install is idempotent, and uninstall removes only ToolTrace-managed entries, leaving your own hooks untouched.
+- `CODEX_HOME` and `CLAUDE_CONFIG_DIR` override the config directories; `TOOLTRACE_COLLECTOR_URL` (or `--collector-url`) overrides the collector base URL.
+- By default, hooks use metadata redaction. ToolTrace stores event names, tool names, IDs, statuses, durations, models, and payload sizes, but not raw prompts, command text, tool input/output, file contents, or hidden reasoning.
+
+To verify hook ingestion without running Codex or Claude Code, start the local collector and run:
+
+```bash
+node examples/agent-hook-smoke.mjs
+```
+
+See [Agent Tracing](docs/agent-tracing.md) for privacy defaults, smoke testing, and known limitations.
+
 ## Workspace
 
 ```text
@@ -102,8 +135,10 @@ packages/
   cli/             tooltrace dev command
 examples/
   simple-agent/    fake agent demo
+  agent-hook-smoke.mjs  Codex/Claude Code hook ingestion smoke
 docs/
   architecture.md  MVP architecture notes
+  agent-tracing.md Codex and Claude Code tracing guide
 ```
 
 ## Useful Commands
@@ -115,6 +150,7 @@ pnpm --filter @tooltrace/server dev
 pnpm --filter @tooltrace/web dev
 pnpm --filter @tooltrace/sdk smoke
 pnpm --filter simple-agent dev
+node examples/agent-hook-smoke.mjs
 ```
 
 Generate a failing demo run for the failure inspector:
@@ -136,6 +172,8 @@ pnpm --filter simple-agent dev
 - `POST /runs`
 - `PATCH /runs/:id`
 - `POST /events`
+- `POST /integrations/codex/hook`
+- `POST /integrations/claude-code/hook`
 - `GET /runs`
 - `GET /runs/:id/events`
 

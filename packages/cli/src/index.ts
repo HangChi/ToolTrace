@@ -2,6 +2,14 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 
+import {
+  installHooks,
+  uninstallHooks,
+  type HookScope,
+  type HookTarget,
+  type RedactionLevel
+} from "./hooks.js";
+
 const command = process.argv[2];
 
 if (!command || command === "--help" || command === "-h") {
@@ -19,9 +27,134 @@ if (command === "dev") {
   process.exit(0);
 }
 
+if (command === "install") {
+  runInstall(process.argv.slice(3));
+  process.exit(0);
+}
+
+if (command === "uninstall") {
+  runUninstall(process.argv.slice(3));
+  process.exit(0);
+}
+
 console.error(`Unknown command: ${command}`);
 printHelp();
 process.exit(1);
+
+function runInstall(argv: string[]) {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    printInstallHelp();
+    return;
+  }
+
+  const { positionals, flags } = parseFlags(argv);
+  const target = parseTarget(positionals[0]);
+  const scope = parseScope(flags.scope);
+  const redaction = parseRedaction(flags.redaction);
+  const collectorUrl = flags["collector-url"];
+
+  const result = installHooks(target, { scope, redaction, collectorUrl });
+
+  console.log(`Installed ToolTrace tracing hooks for ${result.target} (${scope} scope).`);
+  console.log(`Config: ${result.path}`);
+  console.log(`Collector: ${result.collectorUrl}`);
+  console.log(`Redaction: ${result.redaction}`);
+  console.log(`Events: ${result.events.join(", ")}`);
+
+  if (result.backupPath) {
+    console.log(`Backup: ${result.backupPath}`);
+  }
+}
+
+function runUninstall(argv: string[]) {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    printUninstallHelp();
+    return;
+  }
+
+  const { positionals } = parseFlags(argv);
+  const target = parseTarget(positionals[0]);
+
+  const result = uninstallHooks(target);
+
+  if (!result.changed) {
+    console.log(`No ToolTrace tracing hooks found for ${target}.`);
+    console.log(`Config: ${result.path}`);
+    return;
+  }
+
+  console.log(`Removed ${result.removed} ToolTrace tracing hook entries for ${target}.`);
+  console.log(`Config: ${result.path}`);
+
+  if (result.backupPath) {
+    console.log(`Backup: ${result.backupPath}`);
+  }
+}
+
+function parseTarget(value: string | undefined): HookTarget {
+  if (value === "codex" || value === "claude-code") {
+    return value;
+  }
+
+  console.error(`Unknown install target: ${value ?? "(missing)"}`);
+  printInstallHelp();
+  process.exit(1);
+}
+
+function parseScope(value: string | undefined): HookScope {
+  if (value === undefined || value === "user") {
+    return "user";
+  }
+
+  console.error(`Unsupported scope: ${value}. Only "user" is supported.`);
+  process.exit(1);
+}
+
+function parseRedaction(value: string | undefined): RedactionLevel {
+  if (value === undefined || value === "metadata") {
+    return "metadata";
+  }
+
+  console.error(`Unsupported redaction level: ${value}. Only "metadata" is supported.`);
+  process.exit(1);
+}
+
+function parseFlags(argv: string[]) {
+  const flags: Record<string, string> = {};
+  const positionals: string[] = [];
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+
+    if (arg === undefined) {
+      continue;
+    }
+
+    if (arg.startsWith("--")) {
+      const equals = arg.indexOf("=");
+
+      if (equals !== -1) {
+        flags[arg.slice(2, equals)] = arg.slice(equals + 1);
+        continue;
+      }
+
+      const next = argv[index + 1];
+
+      if (next !== undefined && !next.startsWith("--")) {
+        flags[arg.slice(2)] = next;
+        index += 1;
+      } else {
+        flags[arg.slice(2)] = "true";
+      }
+
+      continue;
+    }
+
+    positionals.push(arg);
+  }
+
+  return { flags, positionals };
+}
 
 async function runDev() {
   const serverPort = process.env.TOOLTRACE_SERVER_PORT ?? "4319";
@@ -140,9 +273,52 @@ function printHelp() {
 
 Usage:
   tooltrace dev
+  tooltrace install <target> [options]
+  tooltrace uninstall <target>
 
 Commands:
-  dev    Start the local collector and dashboard
+  dev        Start the local collector and dashboard
+  install    Install global agent tracing hooks
+  uninstall  Remove ToolTrace-managed tracing hooks
+
+Targets:
+  codex      Codex CLI (~/.codex/hooks.json)
+  claude-code  Claude Code (~/.claude/settings.json)
+`);
+}
+
+function printInstallHelp() {
+  console.log(`tooltrace install <target> [options]
+
+Targets:
+  codex                  Codex CLI (~/.codex/hooks.json)
+  claude-code            Claude Code (~/.claude/settings.json)
+
+Options:
+  --scope <scope>        Config scope, default user (only user is supported)
+  --redaction <level>    Redaction level, default metadata
+  --collector-url <url>  Collector base URL, default http://localhost:4319
+
+Environment:
+  CODEX_HOME                Codex config directory override
+  CLAUDE_CONFIG_DIR         Claude Code config directory override
+  TOOLTRACE_COLLECTOR_URL   Default collector base URL
+
+A timestamped .tooltrace-backup file is created before the config is changed.
+Re-running install is safe; it replaces only the ToolTrace-managed entries.
+`);
+}
+
+function printUninstallHelp() {
+  console.log(`tooltrace uninstall <target>
+
+Targets:
+  codex                  Codex CLI (~/.codex/hooks.json)
+  claude-code            Claude Code (~/.claude/settings.json)
+
+Removes only the ToolTrace-managed hook entries. User-defined hooks and other
+config keys are left untouched. A timestamped .tooltrace-backup file is created
+before the config is changed.
 `);
 }
 
