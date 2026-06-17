@@ -2,6 +2,7 @@ import { createRunSchema, createTraceEventSchema, updateRunSchema } from "@toolt
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
+import { ingestAgentHook, type AgentHookSource } from "./agent-hooks.js";
 import { createEvent, createRun, listEventsByRunId, listRuns, updateRun } from "./storage.js";
 
 export function createApp() {
@@ -52,6 +53,14 @@ export function createApp() {
     return c.json({ ok: true }, 201);
   });
 
+  app.post("/integrations/codex/hook", async (c) => {
+    return ingestHook(c, "codex");
+  });
+
+  app.post("/integrations/claude-code/hook", async (c) => {
+    return ingestHook(c, "claude-code");
+  });
+
   app.get("/runs", async (c) => {
     const runs = await listRuns();
 
@@ -65,6 +74,28 @@ export function createApp() {
   });
 
   return app;
+}
+
+async function ingestHook(
+  c: { req: { json: () => Promise<unknown> }; json: (value: unknown, status?: number) => Response },
+  source: AgentHookSource
+) {
+  const body = await readJson(c.req);
+
+  try {
+    const result = await ingestAgentHook(source, body);
+
+    return c.json({ ok: true, ...result }, 202);
+  } catch (error) {
+    return c.json(
+      {
+        ok: true,
+        stored: false,
+        error: error instanceof Error ? error.message : String(error)
+      },
+      202
+    );
+  }
 }
 
 async function readJson(request: { json: () => Promise<unknown> }) {
