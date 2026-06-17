@@ -8,7 +8,8 @@ export const runs = sqliteTable("runs", {
   endedAt: text("ended_at"),
   inputJson: text("input_json"),
   outputJson: text("output_json"),
-  error: text("error")
+  error: text("error"),
+  metadataJson: text("metadata_json")
 });
 
 export const events = sqliteTable("events", {

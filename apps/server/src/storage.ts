@@ -28,7 +28,8 @@ export function initializeDatabase(path?: string) {
       ended_at TEXT,
       input_json TEXT,
       output_json TEXT,
-      error TEXT
+      error TEXT,
+      metadata_json TEXT
     );
 
     CREATE TABLE IF NOT EXISTS events (
@@ -50,6 +51,8 @@ export function initializeDatabase(path?: string) {
     CREATE INDEX IF NOT EXISTS runs_started_at_idx ON runs(started_at);
   `);
 
+  ensureColumn(sqlite, "runs", "metadata_json", "TEXT");
+
   sqlite.close();
 }
 
@@ -61,7 +64,8 @@ export async function createRun(run: CreateRun, database: Database = defaultDb) 
     startedAt: run.startedAt ?? new Date().toISOString(),
     inputJson: stringifyJson(run.input),
     outputJson: stringifyJson(run.output),
-    error: run.error
+    error: run.error,
+    metadataJson: stringifyJson(run.metadata)
   });
 }
 
@@ -112,7 +116,8 @@ export async function listRuns(database: Database = defaultDb) {
     endedAt: run.endedAt ?? undefined,
     input: parseJson(run.inputJson),
     output: parseJson(run.outputJson),
-    error: run.error ?? undefined
+    error: run.error ?? undefined,
+    metadata: parseJson(run.metadataJson)
   }));
 }
 
@@ -136,4 +141,21 @@ export async function listEventsByRunId(
     error: parseJson(event.errorJson),
     metadata: parseJson(event.metadataJson)
   }));
+}
+
+function ensureColumn(
+  sqlite: ReturnType<typeof createSqliteDatabase>,
+  tableName: string,
+  columnName: string,
+  definition: string
+) {
+  const rows = sqlite.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{
+    name: string;
+  }>;
+
+  if (rows.some((row) => row.name === columnName)) {
+    return;
+  }
+
+  sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
 }
