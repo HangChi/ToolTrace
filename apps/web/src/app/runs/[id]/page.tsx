@@ -89,6 +89,7 @@ type DetailSearchParams = Promise<{
   status?: SearchParamValue;
   type?: SearchParamValue;
   category?: SearchParamValue;
+  show?: SearchParamValue;
 }>;
 
 type EventFilters = {
@@ -112,10 +113,12 @@ export default async function RunDetailPage({
   const locale = parseLocale(query.lang);
   const text = copy[locale];
   const filters = parseEventFilters(query);
+  const showAllEvents = getSearchParam(query.show) === "all";
   const { events, error } = await getEvents(id, locale);
-  const displayEvents = sortEventsDesc(events.filter(isDisplayEvent));
+  const defaultDisplayEvents = events.filter(isDisplayEvent);
+  const displayEvents = sortEventsDesc(showAllEvents ? events : defaultDisplayEvents);
   const filteredEvents = applyEventFilters(displayEvents, filters);
-  const hiddenEvents = Math.max(events.length - displayEvents.length, 0);
+  const hiddenEvents = Math.max(events.length - defaultDisplayEvents.length, 0);
   const totalTokens = events.reduce((sum, event) => sum + (event.metadata?.tokenUsage?.total ?? 0), 0);
   const totalDurationMs = events.reduce((sum, event) => sum + (event.durationMs ?? 0), 0);
   const failedEvents = events.filter((event) => event.status === "error").length;
@@ -166,9 +169,14 @@ export default async function RunDetailPage({
                   {formatFilterCount(filteredEvents.length, displayEvents.length, locale)}
                 </span>
                 {hiddenEvents > 0 ? (
-                  <span className="inline-flex w-fit items-center rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
-                    {text.detail.hiddenEvents}: {hiddenEvents}
-                  </span>
+                  <Link
+                    href={detailHref(id, locale, filters, showAllEvents ? undefined : "all")}
+                    className="inline-flex w-fit items-center rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    {showAllEvents
+                      ? text.detail.hideOtherEvents
+                      : `${text.detail.hiddenEvents}: ${hiddenEvents}`}
+                  </Link>
                 ) : null}
               </div>
             </div>
@@ -178,6 +186,7 @@ export default async function RunDetailPage({
               filters={filters}
               events={displayEvents}
               resultCount={filteredEvents.length}
+              showAllEvents={showAllEvents}
             />
           </div>
           {error ? <ErrorState message={error} locale={locale} /> : null}
@@ -320,13 +329,15 @@ function FilterBar({
   locale,
   filters,
   events,
-  resultCount
+  resultCount,
+  showAllEvents
 }: {
   runId: string;
   locale: Locale;
   filters: EventFilters;
   events: TraceEvent[];
   resultCount: number;
+  showAllEvents: boolean;
 }) {
   const text = copy[locale];
   const typeOptions = getUniqueValues(events.map((event) => event.type));
@@ -339,6 +350,7 @@ function FilterBar({
       className="mt-4 grid gap-3 rounded-lg border border-border bg-background/70 p-3 lg:grid-cols-[minmax(220px,1fr)_160px_180px_160px_auto_auto]"
     >
       {locale === "en" ? <input type="hidden" name="lang" value="en" /> : null}
+      {showAllEvents ? <input type="hidden" name="show" value="all" /> : null}
       <label className="min-w-0 text-xs font-medium text-muted-foreground">
         {text.detail.filterSearch}
         <span className="mt-1 flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-foreground shadow-xs">
@@ -433,7 +445,7 @@ function Timeline({ events, locale }: { events: TraceEvent[]; locale: Locale }) 
 
   return (
     <ol className="divide-y divide-border">
-      {events.map((event, index) => (
+      {events.map((event) => (
         <li
           key={event.id}
           className="grid gap-4 px-5 py-4 transition-colors hover:bg-accent/25 md:grid-cols-[150px_minmax(0,1fr)]"
@@ -442,9 +454,6 @@ function Timeline({ events, locale }: { events: TraceEvent[]; locale: Locale }) 
             <div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 font-mono font-medium text-foreground">
               <Clock3 className="h-3 w-3 text-muted-foreground" aria-hidden />
               {formatClockTime(event.timestamp, locale)}
-            </div>
-            <div className="mt-2">
-              {text.detail.step} {index + 1}
             </div>
           </div>
 
@@ -650,6 +659,33 @@ function normalizeFilterValue(value: string) {
 
 function getSearchParam(value: SearchParamValue) {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+}
+
+function detailHref(
+  runId: string,
+  locale: Locale,
+  filters: EventFilters,
+  show: "all" | undefined
+) {
+  const params = new URLSearchParams();
+
+  if (filters.q) {
+    params.set("q", filters.q);
+  }
+
+  for (const key of ["status", "type", "category"] as const) {
+    if (filters[key] !== "all") {
+      params.set(key, filters[key]);
+    }
+  }
+
+  if (show === "all") {
+    params.set("show", "all");
+  }
+
+  const suffix = params.toString();
+
+  return localizedHref(`/runs/${runId}${suffix ? `?${suffix}` : ""}`, locale);
 }
 
 function formatCategory(category: string, locale: Locale) {

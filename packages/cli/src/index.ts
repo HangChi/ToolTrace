@@ -64,6 +64,18 @@ function runInstall(argv: string[]) {
   if (result.backupPath) {
     console.log(`Backup: ${result.backupPath}`);
   }
+
+  if (result.codexOtel) {
+    console.log(
+      `Codex OTel: ${result.codexOtel.path} (${result.codexOtel.changed ? "updated" : "already configured"})`
+    );
+    console.log(`Codex OTel endpoint: ${result.codexOtel.endpoint}`);
+    console.log("Restart Codex after install so token telemetry settings are loaded.");
+
+    if (result.codexOtel.backupPath) {
+      console.log(`Codex config backup: ${result.codexOtel.backupPath}`);
+    }
+  }
 }
 
 function runUninstall(argv: string[]) {
@@ -307,6 +319,8 @@ Environment:
 
 A timestamped .tooltrace-backup file is created before the config is changed.
 Re-running install is safe; it replaces only the ToolTrace-managed entries.
+For Codex, install also configures JSON OTel logs for token usage; restart Codex
+after install so the new telemetry setting is loaded.
 `);
 }
 

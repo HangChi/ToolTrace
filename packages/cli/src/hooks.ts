@@ -21,6 +21,12 @@ export interface InstallResult {
   collectorUrl: string;
   redaction: RedactionLevel;
   events: string[];
+  codexOtel?: {
+    path: string;
+    backupPath?: string;
+    endpoint: string;
+    changed: boolean;
+  };
 }
 
 export interface UninstallResult {
@@ -157,6 +163,7 @@ export function installHooks(target: HookTarget, options: InstallOptions = {}): 
 
   const backupPath = backupIfExists(path);
   writeJsonObject(path, config);
+  const codexOtel = target === "codex" ? installCodexOtelConfig(collectorUrl) : undefined;
 
   return {
     target,
@@ -164,8 +171,114 @@ export function installHooks(target: HookTarget, options: InstallOptions = {}): 
     backupPath,
     collectorUrl,
     redaction,
-    events: HOOK_EVENTS.map((entry) => entry.event)
+    events: HOOK_EVENTS.map((entry) => entry.event),
+    codexOtel
   };
+}
+
+function installCodexOtelConfig(collectorUrl: string) {
+  const path = resolveCodexConfigPath();
+  const current = existsSync(path) ? readFileSync(path, "utf8") : "";
+  const endpoint = `${collectorUrl}/integrations/codex/otel/v1/logs`;
+  const next = upsertCodexOtelBlock(current, endpoint);
+
+  if (next === current) {
+    return {
+      path,
+      endpoint,
+      changed: false
+    };
+  }
+
+  const backupPath = backupIfExists(path);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, next, "utf8");
+
+  return {
+    path,
+    backupPath,
+    endpoint,
+    changed: true
+  };
+}
+
+function resolveCodexConfigPath() {
+  const home = process.env.CODEX_HOME ?? join(homedir(), ".codex");
+
+  return join(home, "config.toml");
+}
+
+function upsertCodexOtelBlock(content: string, endpoint: string) {
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const normalized = content.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  const logUserPromptLine = "log_user_prompt = false";
+  const exporterLine = `exporter = { otlp-http = { endpoint = "${escapeTomlString(endpoint)}", protocol = "json" } }`;
+  const desiredLines = [logUserPromptLine, exporterLine];
+  const tableStart = lines.findIndex((line) => /^\s*\[otel\]\s*(?:#.*)?$/.test(line));
+
+  if (tableStart === -1) {
+    const trimmed = normalized.endsWith("\n") || normalized.length === 0 ? normalized : `${normalized}\n`;
+    const separator = trimmed.length === 0 || trimmed.endsWith("\n\n") ? "" : "\n";
+
+    return `${trimmed}${separator}[otel]\n${desiredLines.join("\n")}\n`.replace(/\n/g, newline);
+  }
+
+  let tableEnd = lines.length;
+
+  for (let index = tableStart + 1; index < lines.length; index += 1) {
+    if (/^\s*\[[^\]]+\]\s*(?:#.*)?$/.test(lines[index] ?? "")) {
+      tableEnd = index;
+      break;
+    }
+  }
+
+  const before = lines.slice(0, tableStart + 1);
+  const table = lines.slice(tableStart + 1, tableEnd);
+  const after = lines.slice(tableEnd);
+  const updatedTable = upsertTomlKey(
+    upsertTomlKey(table, "log_user_prompt", logUserPromptLine),
+    "exporter",
+    exporterLine
+  );
+
+  return [...before, ...updatedTable, ...after].join("\n").replace(/\n/g, newline);
+}
+
+function upsertTomlKey(lines: string[], key: string, desiredLine: string) {
+  const keyPattern = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=`);
+  const index = lines.findIndex((line) => keyPattern.test(line));
+
+  if (index === -1) {
+    const next = [...lines];
+    const insertIndex = findTomlTableAppendIndex(next);
+    next.splice(insertIndex, 0, desiredLine);
+
+    return next;
+  }
+
+  const next = [...lines];
+  next[index] = desiredLine;
+
+  return next;
+}
+
+function findTomlTableAppendIndex(lines: string[]) {
+  let index = lines.length;
+
+  while (index > 0 && lines[index - 1]?.trim() === "") {
+    index -= 1;
+  }
+
+  return index;
+}
+
+function escapeTomlString(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function buildHandler(

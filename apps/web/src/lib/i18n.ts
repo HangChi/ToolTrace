@@ -85,6 +85,7 @@ export const copy = {
       noFailures: "\u5f53\u524d\u8fd0\u884c\u6ca1\u6709\u68c0\u6d4b\u5230\u5931\u8d25\u6b65\u9aa4\u3002",
       step: "\u6b65\u9aa4",
       hiddenEvents: "\u5df2\u9690\u85cf\u5176\u4ed6\u4e8b\u4ef6",
+      hideOtherEvents: "\u9690\u85cf\u5176\u4ed6\u4e8b\u4ef6",
       emptyTitle: "\u8fd9\u4e2a\u8fd0\u884c\u8fd8\u6ca1\u6709\u53ef\u5c55\u793a\u4e8b\u4ef6",
       emptyBody:
         "Collector \u5df2\u4fdd\u5b58\u4e8b\u4ef6\uff0c\u4f46\u8fd8\u6ca1\u6709\u547d\u4ee4\u3001\u5de5\u5177\u3001skill\u3001MCP \u6216 token \u8bb0\u5f55\u3002",
@@ -157,6 +158,7 @@ export const copy = {
       noFailures: "No failed steps detected for this run.",
       step: "Step",
       hiddenEvents: "Other events hidden",
+      hideOtherEvents: "Hide other events",
       emptyTitle: "No displayable events captured for this run",
       emptyBody: "The collector has stored events, but no command, tool, skill, MCP, or token record is available yet.",
       emptyFilterTitle: "No events match the filters",

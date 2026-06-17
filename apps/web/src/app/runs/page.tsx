@@ -13,6 +13,7 @@ import {
 } from "~/components/ui/table";
 import {
   copy,
+  formatAgent,
   formatDateTime,
   formatRedaction,
   formatSurface,
@@ -74,7 +75,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
   const totalRuns = runs.length;
   const failedRuns = runs.filter((r) => r.status === "error").length;
   const runningRuns = runs.filter((r) => r.status === "running").length;
-  const agentRuns = runs.filter((r) => r.metadata?.agent).length;
+  const agentSources = getAgentSourceSummary(runs, locale);
 
   return (
     <main id="main-content" className="min-h-screen bg-background">
@@ -117,7 +118,13 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
       <section className="mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label={text.runs.allRuns} value={totalRuns} icon={Activity} accent="sky" />
-          <MetricCard label={text.runs.agentSource} value={agentRuns} icon={Cpu} accent="teal" />
+          <MetricCard
+            label={text.runs.agentSource}
+            value={agentSources.total}
+            detail={agentSources.detail}
+            icon={Cpu}
+            accent="teal"
+          />
           <MetricCard label={text.runs.running} value={runningRuns} icon={Play} accent="amber" />
           <MetricCard label={text.runs.errors} value={failedRuns} icon={AlertCircle} accent="red" />
         </div>
@@ -291,11 +298,13 @@ async function getRuns(locale: Locale): Promise<{ runs: Run[]; error?: string }>
 function MetricCard({
   label,
   value,
+  detail,
   icon: Icon,
   accent
 }: {
   label: string;
   value: number;
+  detail?: string;
   icon: React.ComponentType<{ className?: string }>;
   accent: "sky" | "teal" | "amber" | "red";
 }) {
@@ -314,6 +323,11 @@ function MetricCard({
           <div>
             <p className="text-xs font-medium text-muted-foreground">{label}</p>
             <p className="mt-1 text-2xl font-semibold text-foreground tabular-nums">{value}</p>
+            {detail ? (
+              <p className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground" title={detail}>
+                {detail}
+              </p>
+            ) : null}
           </div>
           <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg border", accents[accent])}>
             <Icon className="h-4 w-4" />
@@ -322,6 +336,29 @@ function MetricCard({
       </CardContent>
     </Card>
   );
+}
+
+function getAgentSourceSummary(runs: Run[], locale: Locale) {
+  const counts = new Map<string, number>();
+
+  for (const run of runs) {
+    const agent = run.metadata?.agent ?? "manual";
+    counts.set(agent, (counts.get(agent) ?? 0) + 1);
+  }
+
+  const sources = [...counts.entries()].sort((a, b) => {
+    const countDiff = b[1] - a[1];
+
+    return countDiff === 0 ? a[0].localeCompare(b[0]) : countDiff;
+  });
+
+  return {
+    total: sources.length,
+    detail: sources
+      .slice(0, 3)
+      .map(([agent, count]) => `${formatAgent(agent, locale)} ${count.toLocaleString()}`)
+      .join(" / ")
+  };
 }
 
 function SourceCell({ metadata, locale }: { metadata?: AgentMetadata; locale: Locale }) {
