@@ -1,7 +1,7 @@
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { desc, eq } from "drizzle-orm";
 
-import type { CreateRun, CreateTraceEvent, UpdateRun } from "@tooltrace/schema";
+import type { CreateRun, CreateTraceEvent, Run, UpdateRun } from "@tooltrace/schema";
 
 import { createSqliteDatabase, db as defaultDb } from "./db.js";
 import { events, runs } from "./schema.js";
@@ -67,6 +67,29 @@ export async function createRun(run: CreateRun, database: Database = defaultDb) 
     error: run.error,
     metadataJson: stringifyJson(run.metadata)
   });
+}
+
+export async function getRunById(
+  id: string,
+  database: Database = defaultDb
+): Promise<Run | undefined> {
+  const row = await database.select().from(runs).where(eq(runs.id, id)).limit(1).get();
+
+  if (!row) {
+    return undefined;
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    status: row.status as Run["status"],
+    startedAt: row.startedAt,
+    endedAt: row.endedAt ?? undefined,
+    input: parseJson(row.inputJson),
+    output: parseJson(row.outputJson),
+    error: row.error ?? undefined,
+    metadata: parseJson(row.metadataJson)
+  };
 }
 
 export async function updateRun(
