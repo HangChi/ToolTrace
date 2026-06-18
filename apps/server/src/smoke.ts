@@ -12,8 +12,11 @@ initializeDatabase(databasePath);
 const app = createApp();
 const runId = `run_${Date.now()}`;
 const metadataRunId = `run_metadata_${Date.now()}`;
+const untrackedRunId = `run_untracked_${Date.now()}`;
 const eventId = `evt_${Date.now()}`;
 const metadataEventId = `evt_metadata_${Date.now()}`;
+const untrackedEventId = `evt_untracked_${Date.now()}`;
+const staleTimestamp = new Date(Date.now() - 31 * 60 * 1000).toISOString();
 
 const createRunResponse = await app.request("/runs", {
   method: "POST",
@@ -138,6 +141,72 @@ if (!Array.isArray(events) || events[0]?.id !== eventId) {
 
 if (events[0]?.metadata?.toolUseId !== "tool_smoke") {
   throw new Error("Expected /runs/:id/events to return event metadata.");
+}
+
+const createUntrackedRunResponse = await app.request("/runs", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    id: untrackedRunId,
+    name: "codex:untracked",
+    status: "running",
+    startedAt: staleTimestamp,
+    input: { source: "agent-hook", redactionLevel: "metadata" },
+    metadata: {
+      agent: "codex",
+      surface: "desktop",
+      redactionLevel: "metadata"
+    }
+  })
+});
+
+if (createUntrackedRunResponse.status !== 201) {
+  throw new Error(
+    `Expected untracked run creation to return 201, got ${createUntrackedRunResponse.status}`
+  );
+}
+
+const createUntrackedEventResponse = await app.request("/events", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    id: untrackedEventId,
+    runId: untrackedRunId,
+    type: "run_started",
+    name: "session",
+    status: "running",
+    timestamp: staleTimestamp,
+    metadata: {
+      agent: "codex",
+      surface: "desktop",
+      hookEvent: "SessionStart",
+      category: "lifecycle",
+      redactionLevel: "metadata"
+    }
+  })
+});
+
+if (createUntrackedEventResponse.status !== 201) {
+  throw new Error(
+    `Expected untracked event creation to return 201, got ${createUntrackedEventResponse.status}`
+  );
+}
+
+const filteredRunsResponse = await app.request("/runs");
+const filteredRuns = await filteredRunsResponse.json();
+
+if (Array.isArray(filteredRuns) && filteredRuns.some((run) => run.id === untrackedRunId)) {
+  throw new Error("Expected untracked collector-only runs to be hidden by default.");
+}
+
+const allRunsResponse = await app.request("/runs?includeUntracked=1");
+const allRuns = await allRunsResponse.json();
+const untrackedRun = Array.isArray(allRuns)
+  ? allRuns.find((run) => run.id === untrackedRunId)
+  : undefined;
+
+if (untrackedRun?.status !== "error" || !untrackedRun.endedAt || !untrackedRun.error) {
+  throw new Error("Expected stale running runs to be closed when runs are listed.");
 }
 
 const metadataEventsResponse = await app.request(`/runs/${metadataRunId}/events`);

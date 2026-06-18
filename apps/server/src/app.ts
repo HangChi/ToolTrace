@@ -70,7 +70,8 @@ export function createApp() {
   });
 
   app.get("/runs", async (c) => {
-    const runs = await listRuns();
+    const includeUntracked = ["1", "true"].includes(c.req.query("includeUntracked") ?? "");
+    const runs = await listRuns({ includeUntracked });
 
     return c.json(runs);
   });

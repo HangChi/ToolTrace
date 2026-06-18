@@ -139,7 +139,10 @@ export default async function RunDetailPage({
                 {text.detail.back}
               </Link>
             </Button>
-            <LanguageSwitcher locale={locale} path={`/runs/${id}`} />
+            <LanguageSwitcher
+              locale={locale}
+              path={detailPath(id, filters, showAllEvents ? "all" : undefined)}
+            />
           </div>
 
           <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -671,6 +674,10 @@ function detailHref(
   filters: EventFilters,
   show: "all" | undefined
 ) {
+  return localizedHref(detailPath(runId, filters, show), locale);
+}
+
+function detailPath(runId: string, filters: EventFilters, show: "all" | undefined) {
   const params = new URLSearchParams();
 
   if (filters.q) {
@@ -689,7 +696,7 @@ function detailHref(
 
   const suffix = params.toString();
 
-  return localizedHref(`/runs/${runId}${suffix ? `?${suffix}` : ""}`, locale);
+  return `/runs/${runId}${suffix ? `?${suffix}` : ""}`;
 }
 
 function formatCategory(category: string, locale: Locale) {

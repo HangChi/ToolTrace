@@ -8,6 +8,35 @@ import { events, runs } from "./schema.js";
 
 type Database = BetterSQLite3Database;
 
+type ListRunsOptions = {
+  includeUntracked?: boolean;
+};
+
+type EventSummary = {
+  commandCount: number;
+  toolCount: number;
+  mcpCount: number;
+  skillCount: number;
+  tokenUsage: {
+    input: number;
+    output: number;
+    total: number;
+    cachedInput?: number;
+    cacheCreationInput?: number;
+    cacheReadInput?: number;
+    reasoningOutput?: number;
+    estimated?: boolean;
+  };
+  commands: string[];
+  tools: string[];
+  mcpTools: string[];
+  skills: string[];
+  hasErrorEvent: boolean;
+  lastEventAt?: string;
+};
+
+const defaultStaleRunMinutes = 30;
+
 function stringifyJson(value: unknown) {
   return value === undefined ? null : JSON.stringify(value);
 }
@@ -148,22 +177,45 @@ export async function createEvent(
   });
 }
 
-export async function listRuns(database: Database = defaultDb) {
+export async function listRuns(
+  options: ListRunsOptions = {},
+  database: Database = defaultDb
+) {
   const rows = await database.select().from(runs).orderBy(desc(runs.startedAt));
   const eventRows = await database.select().from(events);
   const summaries = summarizeEventsByRun(eventRows);
+  const staleRuns = await closeStaleRunningRuns(rows, summaries, database);
 
-  return rows.map((run) => ({
-    id: run.id,
-    name: run.name,
-    status: run.status,
-    startedAt: run.startedAt,
-    endedAt: run.endedAt ?? undefined,
-    input: parseJson(run.inputJson),
-    output: parseJson(run.outputJson),
-    error: run.error ?? undefined,
-    metadata: mergeRunMetadata(parseJson(run.metadataJson), summaries.get(run.id))
-  }));
+  return rows
+    .map((run) => {
+      const input = parseJson(run.inputJson);
+      const metadata = parseJson(run.metadataJson);
+      const summary = summaries.get(run.id);
+      const staleRun = staleRuns.get(run.id);
+      const isStale = staleRun !== undefined || isStaleClosedRun(run);
+
+      return {
+        id: run.id,
+        name: run.name,
+        status: staleRun?.status ?? run.status,
+        startedAt: run.startedAt,
+        endedAt: staleRun?.endedAt ?? run.endedAt ?? undefined,
+        input,
+        output: parseJson(run.outputJson),
+        error: staleRun?.error ?? run.error ?? undefined,
+        metadata: mergeRunMetadata(metadata, summary),
+        _include:
+          options.includeUntracked ||
+          shouldIncludeRunInList({
+            input,
+            summary,
+            isStale,
+            status: staleRun?.status ?? run.status
+          })
+      };
+    })
+    .filter((run) => run._include)
+    .map(({ _include, ...run }) => run);
 }
 
 export async function listEventsByRunId(
@@ -218,7 +270,7 @@ function ensureColumn(
   sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
 }
 
-function mergeRunMetadata(metadata: unknown, summary: unknown) {
+function mergeRunMetadata(metadata: unknown, summary: EventSummary | undefined) {
   const base = asRecord(metadata);
 
   if (summary === undefined) {
@@ -227,34 +279,12 @@ function mergeRunMetadata(metadata: unknown, summary: unknown) {
 
   return {
     ...base,
-    summary
+    summary: toPublicSummary(summary)
   };
 }
 
 function summarizeEventsByRun(eventRows: Array<typeof events.$inferSelect>) {
-  const summaries = new Map<
-    string,
-    {
-      commandCount: number;
-      toolCount: number;
-      mcpCount: number;
-      skillCount: number;
-      tokenUsage: {
-        input: number;
-        output: number;
-        total: number;
-        cachedInput?: number;
-        cacheCreationInput?: number;
-        cacheReadInput?: number;
-        reasoningOutput?: number;
-        estimated?: boolean;
-      };
-      commands: string[];
-      tools: string[];
-      mcpTools: string[];
-      skills: string[];
-    }
-  >();
+  const summaries = new Map<string, EventSummary>();
 
   for (const row of eventRows) {
     const metadata = asRecord(parseJson(row.metadataJson));
@@ -271,8 +301,13 @@ function summarizeEventsByRun(eventRows: Array<typeof events.$inferSelect>) {
       commands: [],
       tools: [],
       mcpTools: [],
-      skills: []
+      skills: [],
+      hasErrorEvent: false,
+      lastEventAt: undefined
     };
+
+    summary.hasErrorEvent = summary.hasErrorEvent || row.status === "error";
+    summary.lastEventAt = getLatestDateString(summary.lastEventAt, row.timestamp);
 
     const command = getString(metadata.command);
     const toolName = getString(metadata.toolName);
@@ -300,6 +335,120 @@ function summarizeEventsByRun(eventRows: Array<typeof events.$inferSelect>) {
   }
 
   return summaries;
+}
+
+async function closeStaleRunningRuns(
+  runRows: Array<typeof runs.$inferSelect>,
+  summaries: Map<string, EventSummary>,
+  database: Database
+) {
+  const staleRuns = new Map<string, { status: "error"; endedAt: string; error: string }>();
+  const staleMs = getStaleRunMs();
+  const now = Date.now();
+  const endedAt = new Date(now).toISOString();
+  const error = `No completion hook received after ${Math.round(staleMs / 60_000)} minutes of inactivity.`;
+
+  for (const run of runRows) {
+    if (run.status !== "running") {
+      continue;
+    }
+
+    const lastActivityAt = summaries.get(run.id)?.lastEventAt ?? run.startedAt;
+    const lastActivityMs = new Date(lastActivityAt).getTime();
+
+    if (!Number.isFinite(lastActivityMs) || now - lastActivityMs < staleMs) {
+      continue;
+    }
+
+    staleRuns.set(run.id, { status: "error", endedAt, error });
+
+    await database
+      .update(runs)
+      .set({ status: "error", endedAt, error })
+      .where(eq(runs.id, run.id));
+  }
+
+  return staleRuns;
+}
+
+function shouldIncludeRunInList({
+  input,
+  isStale,
+  summary,
+  status
+}: {
+  input: unknown;
+  isStale: boolean;
+  summary: EventSummary | undefined;
+  status: string;
+}) {
+  if (!isCollectorRun(input)) {
+    return true;
+  }
+
+  if (isStale && (!summary || getSummarySignalTotal(summary) === 0)) {
+    return false;
+  }
+
+  if (!summary) {
+    return status === "error";
+  }
+
+  return getSummarySignalTotal(summary) > 0 || summary.hasErrorEvent;
+}
+
+function isStaleClosedRun(run: typeof runs.$inferSelect) {
+  return (
+    run.status === "error" &&
+    typeof run.error === "string" &&
+    run.error.startsWith("No completion hook received after ")
+  );
+}
+
+function isCollectorRun(input: unknown) {
+  const source = getString(asRecord(input).source);
+
+  return source === "agent-hook" || source === "codex-otel";
+}
+
+function getSummarySignalTotal(summary: EventSummary) {
+  return (
+    summary.commandCount +
+    summary.toolCount +
+    summary.mcpCount +
+    summary.skillCount +
+    summary.tokenUsage.total
+  );
+}
+
+function toPublicSummary(summary: EventSummary) {
+  const { hasErrorEvent, lastEventAt, ...publicSummary } = summary;
+
+  return publicSummary;
+}
+
+function getStaleRunMs() {
+  const raw =
+    process.env.TOOLTRACE_RUNNING_STALE_MINUTES ?? process.env.TOOLTRACE_STALE_RUN_MINUTES;
+  const minutes = raw ? Number(raw) : defaultStaleRunMinutes;
+
+  return Number.isFinite(minutes) && minutes > 0
+    ? minutes * 60_000
+    : defaultStaleRunMinutes * 60_000;
+}
+
+function getLatestDateString(current: string | undefined, next: string) {
+  if (!current) {
+    return next;
+  }
+
+  return getDateMs(next) > getDateMs(current) ? next : current;
+}
+
+function getDateMs(value: string) {
+  const ms = new Date(value).getTime();
+
+  return Number.isFinite(ms) ? ms : 0;
 }
 
 function addTokenUsage(target: {
