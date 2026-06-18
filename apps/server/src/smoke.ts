@@ -14,6 +14,8 @@ const runId = `run_${Date.now()}`;
 const metadataRunId = `run_metadata_${Date.now()}`;
 const untrackedRunId = `run_untracked_${Date.now()}`;
 const recoveredRunId = `run_recovered_${Date.now()}`;
+const modelRunId = `run_model_${Date.now()}`;
+const hiddenRunId = `run_hidden_${Date.now()}`;
 const eventId = `evt_${Date.now()}`;
 const metadataEventId = `evt_metadata_${Date.now()}`;
 const untrackedEventId = `evt_untracked_${Date.now()}`;
@@ -103,6 +105,9 @@ const createMetadataEventResponse = await app.request("/events", {
       turnId: "turn_smoke",
       toolUseId: "tool_smoke_2",
       hookEvent: "PostToolUse",
+      category: "tool",
+      toolName: "shell_command",
+      toolKind: "command",
       redactionLevel: "metadata"
     }
   })
@@ -132,6 +137,14 @@ if (
   metadataRun.metadata.surfaceSource !== "legacy-unmarked"
 ) {
   throw new Error("Expected legacy Codex metadata without a source marker to be unmarked.");
+}
+
+if (
+  metadataRun.metadata.summary?.commandCount !== 1 ||
+  metadataRun.metadata.summary.toolCount !== 0 ||
+  !metadataRun.metadata.summary.commands?.includes("shell_command")
+) {
+  throw new Error("Expected legacy command-like tool metadata to summarize as a command.");
 }
 
 const oldPayloadRun = Array.isArray(runs) ? runs.find((run) => run.id === runId) : undefined;
@@ -273,6 +286,153 @@ const metadataEvents = await metadataEventsResponse.json();
 
 if (!Array.isArray(metadataEvents) || metadataEvents[0]?.id !== metadataEventId) {
   throw new Error("Expected /runs/:id/events to return the metadata smoke event.");
+}
+
+const createModelRunResponse = await app.request("/runs", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    id: modelRunId,
+    name: "model-cost-smoke",
+    status: "running",
+    input: { task: "model summary smoke" }
+  })
+});
+
+if (createModelRunResponse.status !== 201) {
+  throw new Error(`Expected model run creation to return 201, got ${createModelRunResponse.status}`);
+}
+
+const modelEvents = [
+  {
+    id: `${modelRunId}_openai`,
+    model: "gpt-5.4",
+    provider: "openai",
+    tokenUsage: { input: 100, output: 20, total: 120, cachedInput: 60 }
+  },
+  {
+    id: `${modelRunId}_claude`,
+    model: "claude-sonnet-4-6",
+    provider: "anthropic",
+    tokenUsage: {
+      input: 8320,
+      output: 900,
+      total: 12450,
+      cacheCreationInput: 1000,
+      cacheReadInput: 2230
+    }
+  },
+  {
+    id: `${modelRunId}_custom`,
+    model: "custom-local-model",
+    provider: "local",
+    tokenUsage: { input: 3, output: 4, total: 7, estimated: true }
+  }
+];
+
+for (const item of modelEvents) {
+  const response = await app.request("/events", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      id: item.id,
+      runId: modelRunId,
+      type: "llm_call",
+      name: "model_usage",
+      status: "success",
+      metadata: {
+        agent: "codex",
+        surface: "cli",
+        category: "tokens",
+        model: item.model,
+        provider: item.provider,
+        tokenUsage: item.tokenUsage,
+        redactionLevel: "metadata"
+      }
+    })
+  });
+
+  if (response.status !== 201) {
+    throw new Error(`Expected model event creation to return 201, got ${response.status}`);
+  }
+}
+
+const modelRunsResponse = await app.request("/runs?includeUntracked=1");
+const modelRuns = await modelRunsResponse.json();
+const modelRun = Array.isArray(modelRuns)
+  ? modelRuns.find((run) => run.id === modelRunId)
+  : undefined;
+const modelSummary = modelRun?.metadata?.summary;
+
+if (
+  !modelSummary?.models?.includes("gpt-5.4") ||
+  !modelSummary.models.includes("claude-sonnet-4-6") ||
+  !modelSummary.models.includes("custom-local-model")
+) {
+  throw new Error("Expected run summaries to include tracked model names.");
+}
+
+if (
+  modelSummary.tokenUsage?.total !== 12577 ||
+  modelSummary.tokenUsage.estimated !== true ||
+  modelSummary.modelUsage?.length !== 3
+) {
+  throw new Error("Expected run summaries to aggregate token usage by model.");
+}
+
+const createHiddenRunResponse = await app.request("/runs", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    id: hiddenRunId,
+    name: "hidden-pagination-smoke",
+    status: "running",
+    input: { task: "hidden event pagination smoke" }
+  })
+});
+
+if (createHiddenRunResponse.status !== 201) {
+  throw new Error(`Expected hidden run creation to return 201, got ${createHiddenRunResponse.status}`);
+}
+
+for (let index = 0; index < 105; index += 1) {
+  const response = await app.request("/events", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      id: `${hiddenRunId}_${index}`,
+      runId: hiddenRunId,
+      type: "step_started",
+      name: "lifecycle",
+      status: "running",
+      timestamp: new Date(Date.now() + index).toISOString(),
+      metadata: {
+        agent: "codex",
+        surface: "cli",
+        hookEvent: "Notification",
+        category: "lifecycle",
+        redactionLevel: "metadata"
+      }
+    })
+  });
+
+  if (response.status !== 201) {
+    throw new Error(`Expected hidden event creation to return 201, got ${response.status}`);
+  }
+}
+
+const hiddenEventsResponse = await app.request(
+  `/runs/${hiddenRunId}/events?visibility=hidden&page=2&pageSize=100`
+);
+const hiddenEventsPage = await hiddenEventsResponse.json();
+
+if (
+  !Array.isArray(hiddenEventsPage.events) ||
+  hiddenEventsPage.events.length !== 5 ||
+  hiddenEventsPage.counts?.hidden !== 105 ||
+  hiddenEventsPage.pagination?.totalPages !== 2
+) {
+  throw new Error("Expected hidden events to be paginated by the events API.");
 }
 
 const codexSessionId = "codex_session_smoke";

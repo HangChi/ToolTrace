@@ -3,7 +3,15 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import { ingestAgentHook, ingestCodexOtelLogs, type AgentHookSource } from "./agent-hooks.js";
-import { createEvent, createRun, deleteRun, listEventsByRunId, listRuns, updateRun } from "./storage.js";
+import {
+  createEvent,
+  createRun,
+  deleteRun,
+  listEventsByRunId,
+  listEventsPageByRunId,
+  listRuns,
+  updateRun
+} from "./storage.js";
 
 export function createApp() {
   const app = new Hono();
@@ -80,9 +88,23 @@ export function createApp() {
   });
 
   app.get("/runs/:id/events", async (c) => {
-    const events = await listEventsByRunId(c.req.param("id"));
+    if (!hasEventListQuery(c.req)) {
+      const events = await listEventsByRunId(c.req.param("id"));
 
-    return c.json(events);
+      return c.json(events);
+    }
+
+    const result = await listEventsPageByRunId(c.req.param("id"), {
+      visibility: parseVisibility(c.req.query("visibility")),
+      page: parseNumber(c.req.query("page")),
+      pageSize: parseNumber(c.req.query("pageSize")),
+      q: c.req.query("q"),
+      status: c.req.query("status"),
+      type: c.req.query("type"),
+      category: c.req.query("category")
+    });
+
+    return c.json(result);
   });
 
   app.delete("/runs/:id", async (c) => {
@@ -96,6 +118,26 @@ export function createApp() {
   });
 
   return app;
+}
+
+function hasEventListQuery(request: { query: (name: string) => string | undefined }) {
+  return ["visibility", "page", "pageSize", "q", "status", "type", "category"].some(
+    (name) => request.query(name) !== undefined
+  );
+}
+
+function parseVisibility(value: string | undefined) {
+  return value === "hidden" || value === "all" ? value : "display";
+}
+
+function parseNumber(value: string | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 async function ingestHook(

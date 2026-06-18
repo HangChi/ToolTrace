@@ -142,8 +142,17 @@ export function normalizeAgentHook(
   const command = getCommand(body, toolName);
   const mcpTool = parseMcpTool(toolName);
   const skillName = getSkillName(body, toolName);
+  const toolKind = getToolKind(toolName);
   const tokenUsage = extractTokenUsage(source, body) ?? estimateHookTokenUsage(source, body, hookEvent, model);
-  const category = getTrackingCategory({ hookEvent, toolName, command, mcpTool, skillName, tokenUsage });
+  const category = getTrackingCategory({
+    hookEvent,
+    toolName,
+    toolKind,
+    command,
+    mcpTool,
+    skillName,
+    tokenUsage
+  });
   const isKnownHookEvent = knownHookEventSet.has(hookEvent);
   const status = isKnownHookEvent ? getHookStatus(hookEvent) : "error";
   const eventType = isKnownHookEvent ? getHookEventType(hookEvent, tokenUsage) : "error";
@@ -164,7 +173,7 @@ export function normalizeAgentHook(
     category,
     command,
     toolName,
-    toolKind: getToolKind(toolName),
+    toolKind,
     mcpServer: mcpTool?.server,
     mcpTool: mcpTool?.tool,
     skillName,
@@ -292,6 +301,7 @@ export function normalizeCodexOtelLogs(payload: unknown, hints: IngestHints = {}
           "command_name",
           "command.name"
         );
+        const toolKind = getToolKind(toolName);
         const tokenUsage = extractTokenUsage("codex", {
           ...attributes,
           ...bodyRecord,
@@ -301,6 +311,7 @@ export function normalizeCodexOtelLogs(payload: unknown, hints: IngestHints = {}
         const category = getTrackingCategory({
           hookEvent: eventName,
           toolName,
+          toolKind,
           command,
           mcpTool,
           skillName,
@@ -319,7 +330,7 @@ export function normalizeCodexOtelLogs(payload: unknown, hints: IngestHints = {}
           category,
           command,
           toolName,
-          toolKind: getToolKind(toolName),
+          toolKind,
           mcpServer: mcpTool?.server,
           mcpTool: mcpTool?.tool,
           skillName,
@@ -608,12 +619,13 @@ function getRedactedOutput(
 function getTrackingCategory(input: {
   hookEvent: string;
   toolName: string | undefined;
+  toolKind: string | undefined;
   command: string | undefined;
   mcpTool: ReturnType<typeof parseMcpTool>;
   skillName: string | undefined;
   tokenUsage: TokenUsage | undefined;
 }): TrackingCategory {
-  if (input.command !== undefined) {
+  if (input.command !== undefined || input.toolKind === "command") {
     return "command";
   }
 
@@ -1178,17 +1190,90 @@ function getOtelDisplayName(
 }
 
 function getOtelTimestamp(record: Record<string, unknown>) {
-  const unixNano = getValue(record, "timeUnixNano", "observedTimeUnixNano");
+  const timestamp = getValue(
+    record,
+    "timeUnixNano",
+    "observedTimeUnixNano",
+    "time_unix_nano",
+    "observed_time_unix_nano",
+    "timeUnixMilliseconds",
+    "timeUnixMillis",
+    "timestamp",
+    "time"
+  );
+  const ms = parseTimestampMs(timestamp);
 
-  if (typeof unixNano === "string" && /^\d+$/.test(unixNano)) {
-    return new Date(Number(BigInt(unixNano) / 1_000_000n)).toISOString();
+  return new Date(ms ?? Date.now()).toISOString();
+}
+
+function parseTimestampMs(value: unknown) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    if (/^\d+$/.test(trimmed)) {
+      return normalizeNumericTimestampMs(trimmed);
+    }
+
+    const ms = new Date(trimmed).getTime();
+
+    return isReasonableTimestampMs(ms) ? ms : undefined;
   }
 
-  if (typeof unixNano === "number" && Number.isFinite(unixNano)) {
-    return new Date(Math.floor(unixNano / 1_000_000)).toISOString();
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return normalizeNumericTimestampMs(value);
   }
 
-  return new Date().toISOString();
+  return undefined;
+}
+
+function normalizeNumericTimestampMs(value: string | number) {
+  if (typeof value === "string") {
+    const digits = BigInt(value);
+
+    if (digits <= 0n) {
+      return undefined;
+    }
+
+    if (digits >= 100_000_000_000_000_000n) {
+      return Number(digits / 1_000_000n);
+    }
+
+    if (digits >= 100_000_000_000_000n) {
+      return Number(digits / 1_000n);
+    }
+
+    if (digits >= 100_000_000_000n) {
+      return Number(digits);
+    }
+
+    if (digits >= 1_000_000_000n) {
+      return Number(digits * 1_000n);
+    }
+
+    return undefined;
+  }
+
+  if (value >= 100_000_000_000_000_000) {
+    return Math.floor(value / 1_000_000);
+  }
+
+  if (value >= 100_000_000_000_000) {
+    return Math.floor(value / 1_000);
+  }
+
+  if (value >= 100_000_000_000) {
+    return Math.floor(value);
+  }
+
+  if (value >= 1_000_000_000) {
+    return Math.floor(value * 1_000);
+  }
+
+  return undefined;
+}
+
+function isReasonableTimestampMs(value: number) {
+  return Number.isFinite(value) && value >= 946_684_800_000;
 }
 
 function getOtelRedactedPayload(body: Record<string, unknown>, command: string | undefined) {

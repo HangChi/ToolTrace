@@ -24,6 +24,7 @@ import {
 } from "~/lib/i18n";
 import { cn } from "~/lib/utils";
 import { AutoRefresh, DeleteRunButton, RefreshButton } from "./run-controls";
+import { calculateRunCost, getUsdCnyRate, type RunCost } from "~/lib/cost";
 
 export const dynamic = "force-dynamic";
 
@@ -55,16 +56,24 @@ type RunSummary = {
   tools?: string[];
   mcpTools?: string[];
   skills?: string[];
-  tokenUsage?: {
-    input?: number;
-    output?: number;
-    total?: number;
-    cachedInput?: number;
-    cacheCreationInput?: number;
-    cacheReadInput?: number;
-    reasoningOutput?: number;
-    estimated?: boolean;
-  };
+  models?: string[];
+  modelUsage?: Array<{
+    model: string;
+    provider?: string;
+    tokenUsage: TokenUsage;
+  }>;
+  tokenUsage?: TokenUsage;
+};
+
+type TokenUsage = {
+  input?: number;
+  output?: number;
+  total?: number;
+  cachedInput?: number;
+  cacheCreationInput?: number;
+  cacheReadInput?: number;
+  reasoningOutput?: number;
+  estimated?: boolean;
 };
 
 type RunsSearchParams = Promise<{ lang?: string | string[] }>;
@@ -74,7 +83,7 @@ const collectorUrl = process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
 export default async function RunsPage({ searchParams }: { searchParams: RunsSearchParams }) {
   const locale = parseLocale((await searchParams).lang);
   const text = copy[locale];
-  const { runs, error } = await getRuns(locale);
+  const [{ runs, error }, exchangeRate] = await Promise.all([getRuns(locale), getUsdCnyRate()]);
   const totalRuns = runs.length;
   const failedRuns = runs.filter((r) => r.status === "error").length;
   const runningRuns = runs.filter((r) => r.status === "running").length;
@@ -84,7 +93,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
     <main id="main-content" className="min-h-screen bg-background">
       <AutoRefresh />
       <header className="border-b border-border bg-card/95">
-        <div className="mx-auto max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
@@ -118,7 +127,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
         </div>
       </header>
 
-      <section className="mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
+      <section className="w-full px-4 py-6 sm:px-6 lg:px-8">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label={text.runs.allRuns} value={totalRuns} icon={Activity} accent="sky" />
           <MetricCard
@@ -152,14 +161,16 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
           ) : null}
           {!error && runs.length > 0 ? (
             <div>
-              <Table className="min-w-[1460px] table-fixed">
+              <Table className="min-w-[2100px] table-fixed">
                 <colgroup>
-                  <col className="w-[360px]" />
+                  <col className="w-[420px]" />
                   <col className="w-[150px]" />
-                  <col className="w-[190px]" />
-                  <col className="w-[270px]" />
+                  <col className="w-[110px]" />
                   <col className="w-[220px]" />
-                  <col className="w-[180px]" />
+                  <col className="w-[360px]" />
+                  <col className="w-[270px]" />
+                  <col className="w-[190px]" />
+                  <col className="w-[220px]" />
                   <col className="w-[90px]" />
                   <col className="w-[72px]" />
                 </colgroup>
@@ -175,10 +186,16 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                       {text.runs.tableStatus}
                     </TableHead>
                     <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                      {text.runs.tableModel}
+                    </TableHead>
+                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
                       {text.runs.tableTracked}
                     </TableHead>
                     <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
                       {text.runs.tableTokens}
+                    </TableHead>
+                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                      {text.runs.tableCost}
                     </TableHead>
                     <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
                       {text.runs.tableStarted}
@@ -217,16 +234,28 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                       <TableCell className="py-3 align-top whitespace-normal">
                         <StatusBadge status={run.status} locale={locale} />
                         {run.error ? (
-                          <div className="mt-1 break-words font-mono text-[11px] text-destructive">
+                          <div
+                            className="mt-1 max-w-[96px] truncate font-mono text-[11px] text-destructive"
+                            title={run.error}
+                          >
                             {run.error}
                           </div>
                         ) : null}
                       </TableCell>
-                      <TableCell className="py-3 align-top">
+                      <TableCell className="py-3 align-top whitespace-normal">
+                        <ModelCell summary={run.metadata?.summary} />
+                      </TableCell>
+                      <TableCell className="py-3 align-top whitespace-normal">
                         <SummaryCell summary={run.metadata?.summary} locale={locale} />
                       </TableCell>
-                      <TableCell className="py-3 align-top">
+                      <TableCell className="py-3 align-top whitespace-normal">
                         <TokenCell tokenUsage={run.metadata?.summary?.tokenUsage} locale={locale} />
+                      </TableCell>
+                      <TableCell className="py-3 align-top whitespace-normal">
+                        <CostCell
+                          cost={calculateRunCost(run.metadata?.summary, exchangeRate)}
+                          locale={locale}
+                        />
                       </TableCell>
                       <TableCell className="py-3 align-top text-[13px] text-muted-foreground tabular-nums">
                         {formatDateTime(run.startedAt, locale)}
@@ -393,6 +422,23 @@ function SourceCell({ metadata, locale }: { metadata?: AgentMetadata; locale: Lo
   );
 }
 
+function ModelCell({ summary }: { summary?: RunSummary }) {
+  const models = getSummaryModels(summary);
+
+  if (models.length === 0) {
+    return <span className="text-[13px] text-muted-foreground">-</span>;
+  }
+
+  return (
+    <div className="min-w-0 whitespace-normal font-mono text-xs" title={models.join(" / ")}>
+      <div className="truncate font-semibold text-foreground">{models[0]}</div>
+      {models.length > 1 ? (
+        <div className="mt-1 text-[11px] text-muted-foreground">+{models.length - 1}</div>
+      ) : null}
+    </div>
+  );
+}
+
 function SummaryCell({ summary, locale }: { summary?: RunSummary; locale: Locale }) {
   if (!summary || getSummaryTotal(summary) === 0) {
     return <span className="text-[13px] text-muted-foreground">-</span>;
@@ -406,12 +452,6 @@ function SummaryCell({ summary, locale }: { summary?: RunSummary; locale: Locale
     countLabel(summary.mcpCount, "MCP"),
     countLabel(summary.skillCount, "skill")
   ].filter((item): item is string => Boolean(item));
-  const examples = [
-    ...(summary.commands ?? []),
-    ...(summary.mcpTools ?? []),
-    ...(summary.skills ?? []),
-    ...(summary.tools ?? [])
-  ].slice(0, 2);
 
   return (
     <div className="min-w-[180px]">
@@ -425,13 +465,60 @@ function SummaryCell({ summary, locale }: { summary?: RunSummary; locale: Locale
           </span>
         ))}
       </div>
-      {examples.length > 0 ? (
-        <div className="mt-1 max-w-[260px] truncate font-mono text-[11px] text-muted-foreground">
-          {examples.join(" / ")}
+    </div>
+  );
+}
+
+function CostCell({
+  cost,
+  locale
+}: {
+  cost: RunCost;
+  locale: Locale;
+}) {
+  const text = copy[locale];
+  const title = [
+    cost.unpricedModels.length > 0
+      ? `${text.runs.costUnpriced}: ${cost.unpricedModels.join(", ")}`
+      : undefined,
+    cost.exchangeRate
+      ? `USD/CNY ${cost.exchangeRate.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
+      : undefined,
+    cost.exchangeRateUpdatedAt
+  ]
+    .filter(Boolean)
+    .join(" / ");
+
+  if (cost.usd === undefined) {
+    return (
+      <div className="text-xs text-muted-foreground" title={title || undefined}>
+        {cost.unpricedModels.length > 0 ? text.runs.costUnpriced : "-"}
+      </div>
+    );
+  }
+
+  return (
+    <div className="whitespace-normal font-mono text-xs tabular-nums" title={title || undefined}>
+      <div className="font-semibold text-foreground">
+        {cost.estimated ? <span className="mr-1 text-[10px] text-muted-foreground">{text.runs.costEstimated}</span> : null}
+        <span>{formatUsd(cost.usd)}</span>
+      </div>
+      <div className="text-[11px] text-muted-foreground">
+        {cost.cny !== undefined ? formatCny(cost.cny) : text.runs.costUsdOnly}
+      </div>
+      {cost.unpricedModels.length > 0 ? (
+        <div className="text-[10px] text-muted-foreground">
+          {text.runs.costUnpriced} {cost.unpricedModels.length.toLocaleString()}
         </div>
       ) : null}
     </div>
   );
+}
+
+function getSummaryModels(summary: RunSummary | undefined) {
+  const models = summary?.models ?? summary?.modelUsage?.map((usage) => usage.model) ?? [];
+
+  return [...new Set(models)].filter((model) => model.length > 0);
 }
 
 function TokenCell({
@@ -448,7 +535,7 @@ function TokenCell({
   }
 
   return (
-    <div className="font-mono text-xs tabular-nums">
+    <div className="whitespace-normal font-mono text-xs tabular-nums">
       <div className="font-semibold text-foreground">{total.toLocaleString()}</div>
       <div className="text-[11px] text-muted-foreground">
         in {(tokenUsage?.input ?? 0).toLocaleString()} / out{" "}
@@ -480,6 +567,18 @@ function getSummaryTotal(summary: RunSummary) {
 
 function countLabel(count: number | undefined, label: string) {
   return count && count > 0 ? `${count} ${label}` : undefined;
+}
+
+function formatUsd(value: number) {
+  return `$${formatMoney(value)}`;
+}
+
+function formatCny(value: number) {
+  return `CNY ${formatMoney(value)}`;
+}
+
+function formatMoney(value: number) {
+  return value < 0.01 ? value.toFixed(4) : value.toFixed(2);
 }
 
 function formatDuration(startedAt: string, endedAt: string | undefined, locale: Locale) {

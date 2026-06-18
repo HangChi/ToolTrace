@@ -12,6 +12,23 @@ type ListRunsOptions = {
   includeUntracked?: boolean;
 };
 
+type TokenUsageSummary = {
+  input: number;
+  output: number;
+  total: number;
+  cachedInput?: number;
+  cacheCreationInput?: number;
+  cacheReadInput?: number;
+  reasoningOutput?: number;
+  estimated?: boolean;
+};
+
+type ModelUsageSummary = {
+  model: string;
+  provider?: string;
+  tokenUsage: TokenUsageSummary;
+};
+
 type EventSummary = {
   commandCount: number;
   toolCount: number;
@@ -19,16 +36,9 @@ type EventSummary = {
   skillCount: number;
   promptCount: number;
   turnCount: number;
-  tokenUsage: {
-    input: number;
-    output: number;
-    total: number;
-    cachedInput?: number;
-    cacheCreationInput?: number;
-    cacheReadInput?: number;
-    reasoningOutput?: number;
-    estimated?: boolean;
-  };
+  tokenUsage: TokenUsageSummary;
+  models: string[];
+  modelUsage: ModelUsageSummary[];
   commands: string[];
   tools: string[];
   mcpTools: string[];
@@ -37,7 +47,26 @@ type EventSummary = {
   lastEventAt?: string;
 };
 
+type EventVisibility = "display" | "hidden" | "all";
+
+type EventFilters = {
+  q?: string;
+  status?: string;
+  type?: string;
+  category?: string;
+};
+
+type ListEventsOptions = EventFilters & {
+  visibility?: EventVisibility;
+  page?: number;
+  pageSize?: number;
+};
+
+type PublicTraceEvent = Awaited<ReturnType<typeof listEventsByRunId>>[number];
+
 const defaultStaleRunMinutes = 30;
+const defaultEventPageSize = 100;
+const maxEventPageSize = 500;
 
 function stringifyJson(value: unknown) {
   return value === undefined ? null : JSON.stringify(value);
@@ -241,13 +270,64 @@ export async function listEventsByRunId(
     type: event.type,
     name: event.name,
     status: event.status,
-    timestamp: event.timestamp,
+    timestamp: normalizeStoredTimestamp(event.timestamp),
     durationMs: event.durationMs ?? undefined,
     input: parseJson(event.inputJson),
     output: parseJson(event.outputJson),
     error: parseJson(event.errorJson),
     metadata: normalizeMetadataForDisplay(parseJson(event.metadataJson))
   }));
+}
+
+export async function listEventsPageByRunId(
+  runId: string,
+  options: ListEventsOptions = {},
+  database: Database = defaultDb
+) {
+  const allEvents = await listEventsByRunId(runId, database);
+  const visibility = normalizeVisibility(options.visibility);
+  const pageSize = normalizePageSize(options.pageSize);
+  const page = normalizePage(options.page);
+  const displayEvents = allEvents.filter(isDisplayEvent);
+  const hiddenEvents = allEvents.filter((event) => !isDisplayEvent(event));
+  const visibleEvents =
+    visibility === "display" ? displayEvents : visibility === "hidden" ? hiddenEvents : allEvents;
+  const filteredEvents = applyEventFilters(visibleEvents, options);
+  const sortedEvents = sortEventsDesc(filteredEvents);
+  const totalPages = Math.max(1, Math.ceil(sortedEvents.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * pageSize;
+
+  return {
+    events: sortedEvents.slice(start, start + pageSize),
+    counts: {
+      total: allEvents.length,
+      display: displayEvents.length,
+      hidden: hiddenEvents.length,
+      matching: sortedEvents.length
+    },
+    facets: {
+      types: getUniqueValues(visibleEvents.map((event) => event.type)),
+      categories: getUniqueValues(visibleEvents.map(getEventCategory).filter(Boolean))
+    },
+    pagination: {
+      page: safePage,
+      pageSize,
+      total: sortedEvents.length,
+      totalPages
+    },
+    summary: {
+      totalTokens: allEvents.reduce(
+        (sum, event) => sum + getNumber(asRecord(asRecord(event.metadata).tokenUsage).total),
+        0
+      ),
+      totalDurationMs: allEvents.reduce((sum, event) => sum + (event.durationMs ?? 0), 0),
+      failedEvents: allEvents.filter((event) => event.status === "error").length,
+      sourceMetadata: getSourceMetadata(allEvents),
+      errorEvents: allEvents.filter((event) => event.status === "error")
+    },
+    visibility
+  };
 }
 
 export async function deleteRun(id: string, database: Database = defaultDb): Promise<boolean> {
@@ -329,6 +409,8 @@ function summarizeEventsByRun(eventRows: Array<typeof events.$inferSelect>) {
         output: 0,
         total: 0
       },
+      models: [],
+      modelUsage: [],
       commands: [],
       tools: [],
       mcpTools: [],
@@ -342,31 +424,43 @@ function summarizeEventsByRun(eventRows: Array<typeof events.$inferSelect>) {
 
     const command = getString(metadata.command);
     const toolName = getString(metadata.toolName);
+    const toolKind = getString(metadata.toolKind);
+    const category = getString(metadata.category);
     const mcpServer = getString(metadata.mcpServer);
     const mcpTool = getString(metadata.mcpTool);
     const skillName = getString(metadata.skillName);
     const hookEvent = getString(metadata.hookEvent);
+    const model = getString(metadata.model);
+    const provider = getString(metadata.provider);
     const tokenUsage = asRecord(metadata.tokenUsage);
 
-    if (command !== undefined) {
+    if (category === "command" || command !== undefined || toolKind === "command") {
       summary.commandCount += 1;
-      pushUnique(summary.commands, command);
-    } else if (mcpServer !== undefined && mcpTool !== undefined) {
+      pushUnique(summary.commands, command ?? toolName ?? row.name);
+    } else if (
+      category === "mcp" ||
+      (mcpServer !== undefined && mcpTool !== undefined) ||
+      toolKind === "mcp"
+    ) {
       summary.mcpCount += 1;
-      pushUnique(summary.mcpTools, `${mcpServer}.${mcpTool}`);
-    } else if (skillName !== undefined) {
+      pushUnique(summary.mcpTools, formatMcpTool(mcpServer, mcpTool, toolName, row.name));
+    } else if (category === "skill" || skillName !== undefined) {
       summary.skillCount += 1;
-      pushUnique(summary.skills, skillName);
+      pushUnique(summary.skills, skillName ?? toolName ?? row.name);
     } else if (isPromptEvent(hookEvent, row.name)) {
       summary.promptCount += 1;
     } else if (isTurnEvent(hookEvent, row.name)) {
       summary.turnCount += 1;
-    } else if (toolName !== undefined) {
+    } else if (category === "tool" || toolName !== undefined) {
       summary.toolCount += 1;
-      pushUnique(summary.tools, toolName);
+      pushUnique(summary.tools, toolName ?? row.name);
     }
 
     addTokenUsage(summary.tokenUsage, tokenUsage);
+    if (model !== undefined) {
+      pushUnique(summary.models, model);
+      addModelUsage(summary.modelUsage, model, provider, tokenUsage);
+    }
     summaries.set(row.runId, summary);
   }
 
@@ -473,10 +567,24 @@ function isTurnEvent(hookEvent: string | undefined, name: string) {
   );
 }
 
+function formatMcpTool(
+  mcpServer: string | undefined,
+  mcpTool: string | undefined,
+  toolName: string | undefined,
+  fallback: string
+) {
+  return mcpServer !== undefined && mcpTool !== undefined
+    ? `${mcpServer}.${mcpTool}`
+    : (toolName ?? fallback);
+}
+
 function toPublicSummary(summary: EventSummary) {
   const { hasErrorEvent, lastEventAt, ...publicSummary } = summary;
 
-  return publicSummary;
+  return {
+    ...publicSummary,
+    modelUsage: publicSummary.modelUsage.filter((item) => item.tokenUsage.total > 0)
+  };
 }
 
 function getStaleRunMs() {
@@ -498,21 +606,60 @@ function getLatestDateString(current: string | undefined, next: string) {
 }
 
 function getDateMs(value: string) {
-  const ms = new Date(value).getTime();
+  const ms = parseStoredTimestampMs(value);
 
   return Number.isFinite(ms) ? ms : 0;
 }
 
-function addTokenUsage(target: {
-  input: number;
-  output: number;
-  total: number;
-  cachedInput?: number;
-  cacheCreationInput?: number;
-  cacheReadInput?: number;
-  reasoningOutput?: number;
-  estimated?: boolean;
-}, source: Record<string, unknown>) {
+function normalizeStoredTimestamp(value: string) {
+  const ms = parseStoredTimestampMs(value);
+
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : value;
+}
+
+function parseStoredTimestampMs(value: string) {
+  const trimmed = value.trim();
+
+  if (/^\d+$/.test(trimmed)) {
+    return parseNumericTimestampMs(trimmed);
+  }
+
+  const ms = new Date(trimmed).getTime();
+
+  return isReasonableTimestampMs(ms) ? ms : Number.NaN;
+}
+
+function parseNumericTimestampMs(value: string) {
+  const digits = BigInt(value);
+
+  if (digits <= 0n) {
+    return Number.NaN;
+  }
+
+  if (digits >= 100_000_000_000_000_000n) {
+    return Number(digits / 1_000_000n);
+  }
+
+  if (digits >= 100_000_000_000_000n) {
+    return Number(digits / 1_000n);
+  }
+
+  if (digits >= 100_000_000_000n) {
+    return Number(digits);
+  }
+
+  if (digits >= 1_000_000_000n) {
+    return Number(digits * 1_000n);
+  }
+
+  return Number.NaN;
+}
+
+function isReasonableTimestampMs(value: number) {
+  return Number.isFinite(value) && value >= 946_684_800_000;
+}
+
+function addTokenUsage(target: TokenUsageSummary, source: Record<string, unknown>) {
   target.input += getNumber(source.input);
   target.output += getNumber(source.output);
   target.total += getNumber(source.total);
@@ -524,6 +671,180 @@ function addTokenUsage(target: {
   if (source.estimated === true) {
     target.estimated = true;
   }
+}
+
+function addModelUsage(
+  modelUsage: ModelUsageSummary[],
+  model: string,
+  provider: string | undefined,
+  source: Record<string, unknown>
+) {
+  if (getNumber(source.total) === 0) {
+    return;
+  }
+
+  let entry = modelUsage.find((item) => item.model === model);
+
+  if (!entry) {
+    entry = {
+      model,
+      provider,
+      tokenUsage: {
+        input: 0,
+        output: 0,
+        total: 0
+      }
+    };
+    modelUsage.push(entry);
+  } else if (!entry.provider && provider) {
+    entry.provider = provider;
+  }
+
+  addTokenUsage(entry.tokenUsage, source);
+}
+
+function applyEventFilters(events: PublicTraceEvent[], filters: EventFilters) {
+  const query = filters.q?.trim().toLowerCase() ?? "";
+  const status = normalizeFilter(filters.status);
+  const type = normalizeFilter(filters.type);
+  const category = normalizeFilter(filters.category);
+
+  return events.filter((event) => {
+    if (status !== "all" && event.status !== status) {
+      return false;
+    }
+
+    if (type !== "all" && event.type !== type) {
+      return false;
+    }
+
+    if (category !== "all" && getEventCategory(event) !== category) {
+      return false;
+    }
+
+    if (!query) {
+      return true;
+    }
+
+    return getEventSearchText(event).toLowerCase().includes(query);
+  });
+}
+
+function getEventSearchText(event: PublicTraceEvent) {
+  const metadata = asRecord(event.metadata);
+
+  return [
+    event.id,
+    event.parentId,
+    event.type,
+    event.name,
+    event.status,
+    asRecord(event.error).message,
+    metadata.agent,
+    metadata.hookEvent,
+    metadata.command,
+    metadata.toolName,
+    metadata.toolKind,
+    metadata.mcpServer,
+    metadata.mcpTool,
+    metadata.skillName,
+    metadata.model,
+    getObjectString(event.input, "command")
+  ]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join(" ");
+}
+
+function isDisplayEvent(event: PublicTraceEvent) {
+  const category = getEventCategory(event);
+
+  return (
+    category === "command" ||
+    category === "tool" ||
+    category === "mcp" ||
+    category === "skill" ||
+    category === "tokens" ||
+    asRecord(event.metadata).tokenUsage !== undefined
+  );
+}
+
+function getEventCategory(event: PublicTraceEvent) {
+  const metadata = asRecord(event.metadata);
+  const category = getString(metadata.category);
+
+  if (category === "tool" && metadata.toolKind === "command") {
+    return "command";
+  }
+
+  if (category !== undefined) {
+    return category;
+  }
+
+  if (metadata.command !== undefined || getObjectString(event.input, "command") !== undefined) {
+    return "command";
+  }
+
+  if (metadata.toolKind === "command") {
+    return "command";
+  }
+
+  if (metadata.mcpServer !== undefined && metadata.mcpTool !== undefined) {
+    return "mcp";
+  }
+
+  if (metadata.toolKind === "mcp") {
+    return "mcp";
+  }
+
+  if (metadata.skillName !== undefined) {
+    return "skill";
+  }
+
+  if (metadata.toolName !== undefined) {
+    return "tool";
+  }
+
+  return metadata.tokenUsage ? "tokens" : undefined;
+}
+
+function normalizeVisibility(value: EventVisibility | undefined): EventVisibility {
+  return value === "hidden" || value === "all" ? value : "display";
+}
+
+function normalizeFilter(value: string | undefined) {
+  return value && value.length > 0 ? value : "all";
+}
+
+function normalizePage(value: number | undefined) {
+  return Number.isFinite(value) && value !== undefined && value > 0 ? Math.floor(value) : 1;
+}
+
+function normalizePageSize(value: number | undefined) {
+  if (!Number.isFinite(value) || value === undefined || value <= 0) {
+    return defaultEventPageSize;
+  }
+
+  return Math.min(Math.floor(value), maxEventPageSize);
+}
+
+function sortEventsDesc(events: PublicTraceEvent[]) {
+  return [...events].sort((a, b) => getDateMs(b.timestamp) - getDateMs(a.timestamp));
+}
+
+function getObjectString(value: unknown, key: string) {
+  const item = asRecord(value)[key];
+
+  return typeof item === "string" && item.length > 0 ? item : undefined;
+}
+
+function getSourceMetadata(events: PublicTraceEvent[]) {
+  return events.find((event) => asRecord(event.metadata).agent !== undefined)?.metadata ?? {};
+}
+
+function getUniqueValues(values: Array<string | undefined>) {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))].sort((a, b) =>
+    a.localeCompare(b)
+  );
 }
 
 function addOptional(current: number | undefined, value: unknown) {

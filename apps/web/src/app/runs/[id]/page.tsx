@@ -92,6 +92,8 @@ type DetailSearchParams = Promise<{
   type?: SearchParamValue;
   category?: SearchParamValue;
   show?: SearchParamValue;
+  visibility?: SearchParamValue;
+  page?: SearchParamValue;
 }>;
 
 type EventFilters = {
@@ -99,6 +101,36 @@ type EventFilters = {
   status: string;
   type: string;
   category: string;
+};
+
+type EventVisibility = "display" | "hidden" | "all";
+
+type EventPageResult = {
+  events: TraceEvent[];
+  counts: {
+    total: number;
+    display: number;
+    hidden: number;
+    matching: number;
+  };
+  facets: {
+    types: string[];
+    categories: string[];
+  };
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+  summary: {
+    totalTokens: number;
+    totalDurationMs: number;
+    failedEvents: number;
+    sourceMetadata: NonNullable<TraceEvent["metadata"]>;
+    errorEvents: TraceEvent[];
+  };
+  visibility: EventVisibility;
 };
 
 const collectorUrl = process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
@@ -115,17 +147,25 @@ export default async function RunDetailPage({
   const locale = parseLocale(query.lang);
   const text = copy[locale];
   const filters = parseEventFilters(query);
-  const showAllEvents = getSearchParam(query.show) === "all";
-  const { events, error } = await getEvents(id, locale);
-  const defaultDisplayEvents = events.filter(isDisplayEvent);
-  const displayEvents = sortEventsDesc(showAllEvents ? events : defaultDisplayEvents);
-  const filteredEvents = applyEventFilters(displayEvents, filters);
-  const hiddenEvents = Math.max(events.length - defaultDisplayEvents.length, 0);
-  const totalTokens = events.reduce((sum, event) => sum + (event.metadata?.tokenUsage?.total ?? 0), 0);
-  const totalDurationMs = events.reduce((sum, event) => sum + (event.durationMs ?? 0), 0);
-  const failedEvents = events.filter((event) => event.status === "error").length;
-  const failureInsights = inspectFailures(events);
-  const sourceMetadata = getSourceMetadata(events);
+  const visibility = parseVisibility(query);
+  const page = parsePage(query.page);
+  const { result, error } = await getEventPage(id, locale, filters, visibility, page);
+  const events = result?.events ?? [];
+  const counts = result?.counts ?? { total: 0, display: 0, hidden: 0, matching: 0 };
+  const facets = result?.facets ?? { types: [], categories: [] };
+  const pagination = result?.pagination ?? { page: 1, pageSize: 100, total: 0, totalPages: 1 };
+  const summary = result?.summary ?? {
+    totalTokens: 0,
+    totalDurationMs: 0,
+    failedEvents: 0,
+    sourceMetadata: {},
+    errorEvents: []
+  };
+  const totalTokens = summary.totalTokens;
+  const totalDurationMs = summary.totalDurationMs;
+  const failedEvents = summary.failedEvents;
+  const failureInsights = inspectFailures(summary.errorEvents);
+  const sourceMetadata = summary.sourceMetadata;
 
   return (
     <main id="main-content" className="min-h-screen bg-background">
@@ -141,7 +181,7 @@ export default async function RunDetailPage({
             </Button>
             <LanguageSwitcher
               locale={locale}
-              path={detailPath(id, filters, showAllEvents ? "all" : undefined)}
+              path={detailPath(id, filters, visibility, pagination.page)}
             />
           </div>
 
@@ -153,7 +193,7 @@ export default async function RunDetailPage({
               </h1>
             </div>
             <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-              <MiniStat icon={Hash} label={text.detail.steps} value={displayEvents.length} />
+              <MiniStat icon={Hash} label={text.detail.steps} value={pagination.total} />
               <MiniStat icon={Zap} label={text.common.tokens} value={totalTokens.toLocaleString()} />
               <MiniStat icon={AlertTriangle} label={text.detail.errors} value={failedEvents} accent="danger" />
             </div>
@@ -171,16 +211,27 @@ export default async function RunDetailPage({
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 <span className="inline-flex w-fit items-center rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
-                  {formatFilterCount(filteredEvents.length, displayEvents.length, locale)}
+                  {formatFilterCount(events.length, pagination.total, locale)}
                 </span>
-                {hiddenEvents > 0 ? (
+                {counts.hidden > 0 ? (
                   <Link
-                    href={detailHref(id, locale, filters, showAllEvents ? undefined : "all")}
-                    className="inline-flex w-fit items-center rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    href={detailHref(
+                      id,
+                      locale,
+                      filters,
+                      visibility === "hidden" ? "display" : "hidden",
+                      1
+                    )}
+                    className="inline-flex w-fit items-center rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-foreground"
+                    title={
+                      visibility === "hidden"
+                        ? text.detail.hideOtherEvents
+                        : `${text.detail.showHiddenEvents}: ${counts.hidden}`
+                    }
                   >
-                    {showAllEvents
+                    {visibility === "hidden"
                       ? text.detail.hideOtherEvents
-                      : `${text.detail.hiddenEvents}: ${hiddenEvents}`}
+                      : `${text.detail.showHiddenEvents}: ${counts.hidden}`}
                   </Link>
                 ) : null}
               </div>
@@ -189,23 +240,32 @@ export default async function RunDetailPage({
               runId={id}
               locale={locale}
               filters={filters}
-              events={displayEvents}
-              resultCount={filteredEvents.length}
-              showAllEvents={showAllEvents}
+              facets={facets}
+              resultCount={pagination.total}
+              visibility={visibility}
             />
           </div>
           {error ? <ErrorState message={error} locale={locale} /> : null}
-          {!error && displayEvents.length === 0 ? (
+          {!error && pagination.total === 0 && counts.total === 0 ? (
             <EmptyState locale={locale} title={text.detail.emptyTitle} body={text.detail.emptyBody} />
           ) : null}
-          {!error && displayEvents.length > 0 && filteredEvents.length === 0 ? (
+          {!error && counts.total > 0 && events.length === 0 ? (
             <EmptyState
               locale={locale}
               title={text.detail.emptyFilterTitle}
               body={text.detail.emptyFilterBody}
             />
           ) : null}
-          {!error && filteredEvents.length > 0 ? <Timeline events={filteredEvents} locale={locale} /> : null}
+          {!error && events.length > 0 ? <Timeline events={events} locale={locale} /> : null}
+          {!error && pagination.totalPages > 1 ? (
+            <PaginationControls
+              runId={id}
+              locale={locale}
+              filters={filters}
+              visibility={visibility}
+              pagination={pagination}
+            />
+          ) : null}
         </Card>
 
         <aside className="flex flex-col gap-4">
@@ -272,13 +332,36 @@ export default async function RunDetailPage({
   );
 }
 
-async function getEvents(runId: string, locale: Locale): Promise<{ events: TraceEvent[]; error?: string }> {
+async function getEventPage(
+  runId: string,
+  locale: Locale,
+  filters: EventFilters,
+  visibility: EventVisibility,
+  page: number
+): Promise<{ result?: EventPageResult; error?: string }> {
   try {
-    const response = await fetch(`${collectorUrl}/runs/${runId}/events`, { cache: "no-store" });
+    const params = new URLSearchParams({
+      visibility,
+      page: page.toString(),
+      pageSize: "100"
+    });
+
+    if (filters.q) {
+      params.set("q", filters.q);
+    }
+
+    for (const key of ["status", "type", "category"] as const) {
+      if (filters[key] !== "all") {
+        params.set(key, filters[key]);
+      }
+    }
+
+    const response = await fetch(`${collectorUrl}/runs/${runId}/events?${params.toString()}`, {
+      cache: "no-store"
+    });
 
     if (!response.ok) {
       return {
-        events: [],
         error:
           locale === "zh"
             ? `Collector 返回 ${response.status}`
@@ -286,10 +369,9 @@ async function getEvents(runId: string, locale: Locale): Promise<{ events: Trace
       };
     }
 
-    return { events: (await response.json()) as TraceEvent[] };
+    return { result: (await response.json()) as EventPageResult };
   } catch (err) {
     return {
-      events: [],
       error:
         err instanceof Error
           ? err.message
@@ -333,20 +415,20 @@ function FilterBar({
   runId,
   locale,
   filters,
-  events,
+  facets,
   resultCount,
-  showAllEvents
+  visibility
 }: {
   runId: string;
   locale: Locale;
   filters: EventFilters;
-  events: TraceEvent[];
+  facets: EventPageResult["facets"];
   resultCount: number;
-  showAllEvents: boolean;
+  visibility: EventVisibility;
 }) {
   const text = copy[locale];
-  const typeOptions = getUniqueValues(events.map((event) => event.type));
-  const categoryOptions = getUniqueValues(events.map(getEventCategory).filter(Boolean));
+  const typeOptions = facets.types;
+  const categoryOptions = facets.categories;
   const hasActiveFilters = filters.q || filters.status !== "all" || filters.type !== "all" || filters.category !== "all";
 
   return (
@@ -355,7 +437,7 @@ function FilterBar({
       className="mt-4 grid gap-3 rounded-lg border border-border bg-background/70 p-3 lg:grid-cols-[minmax(220px,1fr)_160px_180px_160px_auto_auto]"
     >
       {locale === "en" ? <input type="hidden" name="lang" value="en" /> : null}
-      {showAllEvents ? <input type="hidden" name="show" value="all" /> : null}
+      {visibility !== "display" ? <input type="hidden" name="visibility" value={visibility} /> : null}
       <label className="min-w-0 text-xs font-medium text-muted-foreground">
         {text.detail.filterSearch}
         <span className="mt-1 flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-foreground shadow-xs">
@@ -404,7 +486,9 @@ function FilterBar({
       <div className="flex items-end">
         {hasActiveFilters ? (
           <Button type="button" variant="ghost" size="sm" className="w-full" asChild>
-            <Link href={localizedHref(`/runs/${runId}`, locale)}>{text.detail.clearFilters}</Link>
+            <Link href={detailHref(runId, locale, emptyEventFilters, visibility, 1)}>
+              {text.detail.clearFilters}
+            </Link>
           </Button>
         ) : (
           <span className="flex h-8 items-center text-xs text-muted-foreground tabular-nums">
@@ -442,6 +526,56 @@ function FilterSelect({
         ))}
       </select>
     </label>
+  );
+}
+
+function PaginationControls({
+  runId,
+  locale,
+  filters,
+  visibility,
+  pagination
+}: {
+  runId: string;
+  locale: Locale;
+  filters: EventFilters;
+  visibility: EventVisibility;
+  pagination: EventPageResult["pagination"];
+}) {
+  const text = copy[locale];
+  const previousPage = Math.max(1, pagination.page - 1);
+  const nextPage = Math.min(pagination.totalPages, pagination.page + 1);
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-xs text-muted-foreground tabular-nums">
+        {pagination.page.toLocaleString()} / {pagination.totalPages.toLocaleString()}
+      </div>
+      <div className="flex items-center gap-2">
+        {pagination.page > 1 ? (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={detailHref(runId, locale, filters, visibility, previousPage)}>
+              {text.detail.previousPage}
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" disabled>
+            {text.detail.previousPage}
+          </Button>
+        )}
+        {pagination.page < pagination.totalPages ? (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={detailHref(runId, locale, filters, visibility, nextPage)}>
+              {text.detail.nextPage}
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" disabled>
+            {text.detail.nextPage}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -531,6 +665,8 @@ function Timeline({ events, locale }: { events: TraceEvent[]; locale: Locale }) 
 function EventPrimaryDetail({ event, locale }: { event: TraceEvent; locale: Locale }) {
   const command = event.metadata?.command ?? getObjectString(event.input, "command");
   const tokenUsage = event.metadata?.tokenUsage;
+  const category = getEventCategory(event);
+  const toolName = event.metadata?.toolName;
   const skillName = event.metadata?.skillName;
   const mcp =
     event.metadata?.mcpServer && event.metadata?.mcpTool
@@ -542,6 +678,14 @@ function EventPrimaryDetail({ event, locale }: { event: TraceEvent; locale: Loca
       <pre className="mt-3 overflow-x-auto rounded-lg border border-border bg-muted/60 px-3 py-2 font-mono text-xs leading-5 text-foreground">
         {command}
       </pre>
+    );
+  }
+
+  if (category === "command" && toolName) {
+    return (
+      <div className="mt-3 flex flex-wrap gap-2 font-mono text-xs">
+        <MetadataBadge value={`command ${toolName}`} />
+      </div>
     );
   }
 
@@ -581,7 +725,7 @@ function CategoryBadge({ event, locale }: { event: TraceEvent; locale: Locale })
     skill: "skill",
     tokens: "tokens"
   };
-  const category = event.metadata?.category;
+  const category = getEventCategory(event);
 
   if (!category || !(category in labels)) {
     return null;
@@ -603,61 +747,59 @@ function parseEventFilters(searchParams: Awaited<DetailSearchParams>): EventFilt
   };
 }
 
-function applyEventFilters(events: TraceEvent[], filters: EventFilters) {
-  const query = filters.q.toLowerCase();
+function parseVisibility(searchParams: Awaited<DetailSearchParams>): EventVisibility {
+  const visibility = getSearchParam(searchParams.visibility);
 
-  return events.filter((event) => {
-    if (filters.status !== "all" && event.status !== filters.status) {
-      return false;
-    }
+  if (visibility === "hidden" || visibility === "all") {
+    return visibility;
+  }
 
-    if (filters.type !== "all" && event.type !== filters.type) {
-      return false;
-    }
-
-    if (filters.category !== "all" && getEventCategory(event) !== filters.category) {
-      return false;
-    }
-
-    if (!query) {
-      return true;
-    }
-
-    return getEventSearchText(event).toLowerCase().includes(query);
-  });
+  return getSearchParam(searchParams.show) === "all" ? "all" : "display";
 }
 
-function getEventSearchText(event: TraceEvent) {
-  return [
-    event.id,
-    event.parentId,
-    event.type,
-    event.name,
-    event.status,
-    event.error?.message,
-    event.metadata?.agent,
-    event.metadata?.hookEvent,
-    event.metadata?.command,
-    event.metadata?.toolName,
-    event.metadata?.toolKind,
-    event.metadata?.mcpServer,
-    event.metadata?.mcpTool,
-    event.metadata?.skillName,
-    event.metadata?.model,
-    getObjectString(event.input, "command")
-  ]
-    .filter((value): value is string => typeof value === "string" && value.length > 0)
-    .join(" ");
+function parsePage(value: SearchParamValue) {
+  const parsed = Number(getSearchParam(value));
+
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
 }
 
 function getEventCategory(event: TraceEvent) {
-  return event.metadata?.category ?? (event.metadata?.tokenUsage ? "tokens" : undefined);
-}
+  const metadata = event.metadata;
+  const category = metadata?.category;
 
-function getUniqueValues(values: Array<string | undefined>) {
-  return [...new Set(values.filter((value): value is string => Boolean(value)))].sort((a, b) =>
-    a.localeCompare(b)
-  );
+  if (category === "tool" && metadata?.toolKind === "command") {
+    return "command";
+  }
+
+  if (category !== undefined) {
+    return category;
+  }
+
+  if (metadata?.command !== undefined || getObjectString(event.input, "command") !== undefined) {
+    return "command";
+  }
+
+  if (metadata?.toolKind === "command") {
+    return "command";
+  }
+
+  if (metadata?.mcpServer !== undefined && metadata?.mcpTool !== undefined) {
+    return "mcp";
+  }
+
+  if (metadata?.toolKind === "mcp") {
+    return "mcp";
+  }
+
+  if (metadata?.skillName !== undefined) {
+    return "skill";
+  }
+
+  if (metadata?.toolName !== undefined) {
+    return "tool";
+  }
+
+  return metadata?.tokenUsage ? "tokens" : undefined;
 }
 
 function normalizeFilterValue(value: string) {
@@ -668,16 +810,24 @@ function getSearchParam(value: SearchParamValue) {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
 }
 
+const emptyEventFilters: EventFilters = {
+  q: "",
+  status: "all",
+  type: "all",
+  category: "all"
+};
+
 function detailHref(
   runId: string,
   locale: Locale,
   filters: EventFilters,
-  show: "all" | undefined
+  visibility: EventVisibility,
+  page: number
 ) {
-  return localizedHref(detailPath(runId, filters, show), locale);
+  return localizedHref(detailPath(runId, filters, visibility, page), locale);
 }
 
-function detailPath(runId: string, filters: EventFilters, show: "all" | undefined) {
+function detailPath(runId: string, filters: EventFilters, visibility: EventVisibility, page: number) {
   const params = new URLSearchParams();
 
   if (filters.q) {
@@ -690,8 +840,12 @@ function detailPath(runId: string, filters: EventFilters, show: "all" | undefine
     }
   }
 
-  if (show === "all") {
-    params.set("show", "all");
+  if (visibility !== "display") {
+    params.set("visibility", visibility);
+  }
+
+  if (page > 1) {
+    params.set("page", page.toString());
   }
 
   const suffix = params.toString();
@@ -715,33 +869,6 @@ function formatFilterCount(shown: number, total: number, locale: Locale) {
   return locale === "zh"
     ? `\u5df2\u663e\u793a ${shown.toLocaleString()} / ${total.toLocaleString()} \u6761`
     : `Showing ${shown.toLocaleString()} / ${total.toLocaleString()}`;
-}
-
-function isDisplayEvent(event: TraceEvent) {
-  const category = event.metadata?.category;
-
-  return (
-    category === "command" ||
-    category === "tool" ||
-    category === "mcp" ||
-    category === "skill" ||
-    category === "tokens" ||
-    event.metadata?.tokenUsage !== undefined
-  );
-}
-
-function sortEventsDesc(events: TraceEvent[]) {
-  return [...events].sort((a, b) => getTimestampMs(b.timestamp) - getTimestampMs(a.timestamp));
-}
-
-function getTimestampMs(value: string) {
-  const ms = new Date(value).getTime();
-
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-function getSourceMetadata(events: TraceEvent[]): NonNullable<TraceEvent["metadata"]> {
-  return events.find((event) => event.metadata?.agent)?.metadata ?? {};
 }
 
 function hasTraceIds(event: TraceEvent) {

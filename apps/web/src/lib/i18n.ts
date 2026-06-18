@@ -46,8 +46,10 @@ export const copy = {
       tableRun: "\u8fd0\u884c",
       tableSource: "\u6765\u6e90",
       tableStatus: "\u72b6\u6001",
+      tableModel: "\u6a21\u578b",
       tableTracked: "\u8ffd\u8e2a\u5185\u5bb9",
       tableTokens: "Tokens",
+      tableCost: "\u6210\u672c",
       tableStarted: "\u5f00\u59cb\u65f6\u95f4",
       tableDuration: "\u8017\u65f6",
       tableError: "\u9519\u8bef",
@@ -62,6 +64,9 @@ export const copy = {
       confirmDelete:
         "\u786e\u5b9a\u5220\u9664\u8fd9\u6761\u8fd0\u884c\u8bb0\u5f55\u5417\uff1f\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002",
       deleteFailed: "\u5220\u9664\u5931\u8d25\uff1a",
+      costUnpriced: "\u672a\u914d\u7f6e",
+      costEstimated: "\u4f30\u7b97",
+      costUsdOnly: "\u6c47\u7387\u4e0d\u53ef\u7528",
       emptyTitle: "\u8fd8\u6ca1\u6709\u6355\u83b7\u5230\u8fd0\u884c",
       emptyBody:
         "\u542f\u52a8\u672c\u5730 collector \u540e\uff0c\u4f7f\u7528\u5df2\u63a5\u5165 hook \u7684 Agent \u5373\u53ef\u5728\u8fd9\u91cc\u770b\u5230\u8bb0\u5f55\u3002"
@@ -85,6 +90,7 @@ export const copy = {
       noFailures: "\u5f53\u524d\u8fd0\u884c\u6ca1\u6709\u68c0\u6d4b\u5230\u5931\u8d25\u6b65\u9aa4\u3002",
       step: "\u6b65\u9aa4",
       hiddenEvents: "\u5df2\u9690\u85cf\u5176\u4ed6\u4e8b\u4ef6",
+      showHiddenEvents: "\u663e\u793a\u5df2\u9690\u85cf\u4e8b\u4ef6",
       hideOtherEvents: "\u9690\u85cf\u5176\u4ed6\u4e8b\u4ef6",
       emptyTitle: "\u8fd9\u4e2a\u8fd0\u884c\u8fd8\u6ca1\u6709\u53ef\u5c55\u793a\u4e8b\u4ef6",
       emptyBody:
@@ -98,7 +104,9 @@ export const copy = {
       filterCategory: "\u5206\u7c7b",
       filterAll: "\u5168\u90e8",
       applyFilters: "\u7b5b\u9009",
-      clearFilters: "\u6e05\u9664"
+      clearFilters: "\u6e05\u9664",
+      previousPage: "\u4e0a\u4e00\u9875",
+      nextPage: "\u4e0b\u4e00\u9875"
     }
   },
   en: {
@@ -122,8 +130,10 @@ export const copy = {
       tableRun: "Run",
       tableSource: "Source",
       tableStatus: "Status",
+      tableModel: "Model",
       tableTracked: "Tracked",
       tableTokens: "Tokens",
+      tableCost: "Cost",
       tableStarted: "Started",
       tableDuration: "Duration",
       tableError: "Error",
@@ -137,6 +147,9 @@ export const copy = {
       cancel: "Cancel",
       confirmDelete: "Delete this run? This action cannot be undone.",
       deleteFailed: "Delete failed: ",
+      costUnpriced: "unpriced",
+      costEstimated: "estimated",
+      costUsdOnly: "rate unavailable",
       emptyTitle: "No runs captured yet",
       emptyBody: "Start the local collector and use an agent with hooks installed to populate this table."
     },
@@ -158,6 +171,7 @@ export const copy = {
       noFailures: "No failed steps detected for this run.",
       step: "Step",
       hiddenEvents: "Other events hidden",
+      showHiddenEvents: "Show hidden events",
       hideOtherEvents: "Hide other events",
       emptyTitle: "No displayable events captured for this run",
       emptyBody: "The collector has stored events, but no command, tool, skill, MCP, or token record is available yet.",
@@ -170,7 +184,9 @@ export const copy = {
       filterCategory: "Category",
       filterAll: "All",
       applyFilters: "Filter",
-      clearFilters: "Clear"
+      clearFilters: "Clear",
+      previousPage: "Previous",
+      nextPage: "Next"
     }
   }
 } as const;
@@ -276,13 +292,63 @@ export function formatDateTime(value: string, locale: Locale) {
 }
 
 export function formatClockTime(value: string, locale: Locale) {
+  const ms = parseTraceTimestampMs(value);
+
+  if (ms === undefined) {
+    return "-";
+  }
+
   return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit"
-  }).format(new Date(value));
+  }).format(new Date(ms));
 }
 
 export function runningDurationLabel(locale: Locale) {
   return locale === "zh" ? "\u8fdb\u884c\u4e2d" : "running";
+}
+
+function parseTraceTimestampMs(value: string) {
+  const trimmed = value.trim();
+
+  if (/^\d+$/.test(trimmed)) {
+    const parsed = parseNumericTimestampMs(trimmed);
+
+    return isReasonableTimestampMs(parsed) ? parsed : undefined;
+  }
+
+  const ms = new Date(trimmed).getTime();
+
+  return isReasonableTimestampMs(ms) ? ms : undefined;
+}
+
+function parseNumericTimestampMs(value: string) {
+  const digits = BigInt(value);
+
+  if (digits <= 0n) {
+    return Number.NaN;
+  }
+
+  if (digits >= 100_000_000_000_000_000n) {
+    return Number(digits / 1_000_000n);
+  }
+
+  if (digits >= 100_000_000_000_000n) {
+    return Number(digits / 1_000n);
+  }
+
+  if (digits >= 100_000_000_000n) {
+    return Number(digits);
+  }
+
+  if (digits >= 1_000_000_000n) {
+    return Number(digits * 1_000n);
+  }
+
+  return Number.NaN;
+}
+
+function isReasonableTimestampMs(value: number) {
+  return Number.isFinite(value) && value >= 946_684_800_000;
 }
