@@ -437,6 +437,66 @@ if (
   throw new Error("Expected Codex Stop hooks to receive estimated output token usage.");
 }
 
+const codexPromptOnlySessionId = "codex_prompt_only_session_smoke";
+const codexPromptOnlyRunId = "run_codex_codex_prompt_only_session_smoke";
+
+await expectAccepted(
+  app.request(codexCliHookPath, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      session_id: codexPromptOnlySessionId,
+      hook_event_name: "SessionStart",
+      cwd: "/workspace/tooltrace"
+    })
+  }),
+  "codex prompt-only SessionStart hook"
+);
+
+await expectAccepted(
+  app.request(codexCliHookPath, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      session_id: codexPromptOnlySessionId,
+      hook_event_name: "UserPromptSubmit",
+      turn_id: "codex_prompt_only_turn_1",
+      prompt: "hello",
+      cwd: "/workspace/tooltrace"
+    })
+  }),
+  "codex prompt-only UserPromptSubmit hook"
+);
+
+await expectAccepted(
+  app.request(codexCliHookPath, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      session_id: codexPromptOnlySessionId,
+      hook_event_name: "Stop",
+      turn_id: "codex_prompt_only_turn_1",
+      last_assistant_message: "hi",
+      cwd: "/workspace/tooltrace"
+    })
+  }),
+  "codex prompt-only Stop hook"
+);
+
+const promptOnlyRunsResponse = await app.request("/runs");
+const promptOnlyRuns = await promptOnlyRunsResponse.json();
+const promptOnlyRun = Array.isArray(promptOnlyRuns)
+  ? promptOnlyRuns.find((run) => run.id === codexPromptOnlyRunId)
+  : undefined;
+
+if (
+  promptOnlyRun?.metadata?.summary?.promptCount !== 1 ||
+  promptOnlyRun.metadata.summary.turnCount !== 1 ||
+  promptOnlyRun.metadata.summary.commandCount !== 0
+) {
+  throw new Error("Expected prompt-only Codex CLI runs to be visible in the default runs list.");
+}
+
 await expectAccepted(
   app.request(codexCliHookPath, {
     method: "POST",

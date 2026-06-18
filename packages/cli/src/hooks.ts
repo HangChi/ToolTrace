@@ -304,10 +304,13 @@ function buildHandler(
     };
   }
 
+  const posixCommand = `curl -sS -m 5 -o /dev/null -X POST "${url}" -H "Content-Type: application/json" --data-binary "@-"`;
+  const windowsCommand = `curl.exe -sS -m 5 -o NUL -X POST "${url}" -H "Content-Type: application/json" --data-binary "@-"`;
+
   return {
     type: "command",
-    command: `curl -sS -m 5 -o /dev/null -X POST "${url}" -H "Content-Type: application/json" --data-binary @-`,
-    commandWindows: `curl.exe -sS -m 5 -o NUL -X POST "${url}" -H "Content-Type: application/json" --data-binary @-`,
+    command: process.platform === "win32" ? windowsCommand : posixCommand,
+    commandWindows: windowsCommand,
     timeout: 5
   };
 }
