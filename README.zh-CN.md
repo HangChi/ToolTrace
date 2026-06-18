@@ -114,7 +114,7 @@ node packages/cli/dist/index.js uninstall claude-code
 - 重复执行 install 是幂等的；uninstall 只移除 ToolTrace 管理块，不会动你自己的 hooks。
 - `CODEX_HOME` 和 `CLAUDE_CONFIG_DIR` 可覆盖配置目录；`TOOLTRACE_COLLECTOR_URL`（或 `--collector-url`）可覆盖 collector 地址。
 - 默认使用 metadata 脱敏级别。ToolTrace 会保存事件名、工具名、执行过的 shell 命令、ID、状态、耗时、模型、来源提供的官方 token 用量、缺少官方用量时的本地 token 估算值，以及非命令工具输入/输出的 payload 大小；不会保存原始 prompt、非命令工具输入/输出全文、文件内容或隐藏推理。
-- 如需最准确的 Codex token，请把官方 Codex OTel JSON 日志导出到 `http://localhost:4319/integrations/codex/otel/v1/logs`；仅来自 Codex hook 的 prompt/output token 会在本地估算，并标记为估算值。
+- 如需最准确的 Codex token，请把官方 Codex OTel JSON 日志导出到 `http://localhost:4319/integrations/codex/otel/v1/logs`；仅来自 Codex 或 Claude Code hook 的 prompt/output token 会在本地估算，并标记为估算值。
 
 不运行 Codex 或 Claude Code 也可以验证 hook ingestion。先启动本地 collector，再运行：
 

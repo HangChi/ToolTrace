@@ -57,7 +57,7 @@ It then reads `/runs/:id/events` and verifies:
 ## Token Usage
 
 ToolTrace stores official usage numbers when the agent source provides them.
-When official Codex usage is missing, it estimates exposed Codex hook
+When official usage is missing, it estimates exposed Codex and Claude Code hook
 prompt/output text locally with a tiktoken-compatible tokenizer and marks those
 values as `estimated`.
 
@@ -87,12 +87,14 @@ For Claude Code, ToolTrace reads usage fields that are present in hook payloads.
 Completed Claude Code `Agent` tool responses can include `totalTokens` and a
 `usage` object with `input_tokens`, `output_tokens`,
 `cache_creation_input_tokens`, and `cache_read_input_tokens`; ToolTrace stores
-those directly without recalculating them.
+those directly without recalculating them. When those fields are absent,
+ToolTrace estimates exposed `UserPromptSubmit.prompt` input and
+`Stop.last_assistant_message` output locally.
 
-Fallback estimates only cover text that Codex hooks expose to the collector,
-such as `UserPromptSubmit.prompt` and `Stop.last_assistant_message`. They do
-not include hidden reasoning, unexposed system context, conversation history, or
-tool payloads that remain redacted.
+Fallback estimates only cover text that Codex and Claude Code hooks expose to
+the collector, such as `UserPromptSubmit.prompt` and
+`Stop.last_assistant_message`. They do not include hidden reasoning, unexposed
+system context, conversation history, or tool payloads that remain redacted.
 
 Set `TOOLTRACE_ENDPOINT` to target a non-default collector:
 
@@ -110,7 +112,7 @@ The first tracing mode is `metadata`. In this mode ToolTrace stores:
   redaction level
 - executed command text for command tools
 - official token usage when the source event provides it, or local estimates
-  when exposed Codex hook prompt/output text is the only available source
+  when exposed hook prompt/output text is the only available source
 - payload sizes or text lengths for prompts and non-command tool input/output
 
 ToolTrace does not store these fields by default:
@@ -130,6 +132,6 @@ explicit and separate from the default metadata mode.
 - Cloud-hosted or web-only agent internals are not visible unless they emit
   events through a supported local hook or future telemetry adapter.
 - ToolTrace intentionally does not rely on unstable transcript file formats.
-- Token usage prefers source-provided official fields or Codex OTel. Codex
-  hook-only prompt/output payloads use local estimates and are marked as
-  estimated.
+- Token usage prefers source-provided official fields or Codex OTel. Hook-only
+  prompt/output payloads from Codex or Claude Code use local estimates and are
+  marked as estimated.

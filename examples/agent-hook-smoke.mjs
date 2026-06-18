@@ -56,6 +56,16 @@ await postHook("/integrations/claude-code/hook", {
 
 await postHook("/integrations/claude-code/hook", {
   session_id: claudeSessionId,
+  hook_event_name: "UserPromptSubmit",
+  turn_id: "turn_1",
+  prompt: secretPrompt,
+  cwd: process.cwd(),
+  model: "claude-sonnet-4-6",
+  permission_mode: "acceptEdits"
+});
+
+await postHook("/integrations/claude-code/hook", {
+  session_id: claudeSessionId,
   hook_event_name: "PostToolUseFailure",
   tool_name: "Bash",
   tool_use_id: "tool_1",
@@ -65,6 +75,16 @@ await postHook("/integrations/claude-code/hook", {
   tool_response: {
     stderr: "permission denied"
   },
+  cwd: process.cwd(),
+  model: "claude-sonnet-4-6",
+  permission_mode: "acceptEdits"
+});
+
+await postHook("/integrations/claude-code/hook", {
+  session_id: claudeSessionId,
+  hook_event_name: "Stop",
+  turn_id: "turn_1",
+  last_assistant_message: "I could not read the file.",
   cwd: process.cwd(),
   model: "claude-sonnet-4-6",
   permission_mode: "acceptEdits"
@@ -87,6 +107,10 @@ assert(
 assert(
   claudeEvents.some((event) => event.name === "Bash command" && event.status === "error"),
   "Expected Claude Code PostToolUseFailure to create an error tool event."
+);
+assert(
+  claudeEvents.some((event) => event.metadata?.tokenUsage?.source === "claude-code-estimate"),
+  "Expected Claude Code prompt/output hooks to receive estimated token usage."
 );
 assert(!combined.includes(secretPrompt), "Raw prompt was unexpectedly persisted.");
 assert(combined.includes(secretCommand), "Executed command text was not persisted.");

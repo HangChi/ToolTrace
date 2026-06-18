@@ -727,10 +727,6 @@ function estimateHookTokenUsage(
   hookEvent: string,
   model: string | undefined
 ): TokenUsage | undefined {
-  if (source !== "codex") {
-    return undefined;
-  }
-
   if (hookEvent === "UserPromptSubmit") {
     const prompt = getString(body, "prompt");
 
@@ -744,7 +740,7 @@ function estimateHookTokenUsage(
         });
   }
 
-  if (hookEvent === "Stop" || hookEvent === "StopFailure") {
+  if (hookEvent === "Stop" || (source === "codex" && hookEvent === "StopFailure")) {
     const lastAssistantMessage = getString(body, "last_assistant_message", "lastAssistantMessage");
 
     return lastAssistantMessage === undefined

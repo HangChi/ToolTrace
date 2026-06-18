@@ -722,6 +722,7 @@ if (
 
 const claudeSessionId = "claude_session_smoke";
 const claudeRunId = "run_claude-code_claude_session_smoke";
+const claudeSecretPrompt = "summarize the private vendor token";
 const claudeSecretCommand = "cat ~/.ssh/id_rsa";
 
 await expectAccepted(
@@ -738,6 +739,23 @@ await expectAccepted(
     })
   }),
   "Claude Code SessionStart hook"
+);
+
+await expectAccepted(
+  app.request("/integrations/claude-code/hook", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      session_id: claudeSessionId,
+      hook_event_name: "UserPromptSubmit",
+      turn_id: "claude_turn_1",
+      prompt: claudeSecretPrompt,
+      cwd: "/workspace/tooltrace",
+      model: "claude-sonnet-4-6",
+      permission_mode: "acceptEdits"
+    })
+  }),
+  "Claude Code UserPromptSubmit hook"
 );
 
 await expectAccepted(
@@ -848,8 +866,8 @@ const claudeEventsResponse = await app.request(`/runs/${claudeRunId}/events`);
 const claudeEvents = await claudeEventsResponse.json();
 const claudeEventsJson = JSON.stringify(claudeEvents);
 
-if (!Array.isArray(claudeEvents) || claudeEvents.length !== 5) {
-  throw new Error("Expected Claude Code hook ingestion to create five events.");
+if (!Array.isArray(claudeEvents) || claudeEvents.length !== 6) {
+  throw new Error("Expected Claude Code hook ingestion to create six events.");
 }
 
 if (!claudeEvents.some((event) => event.name === "Bash command" && event.status === "error")) {
@@ -868,8 +886,45 @@ if (
   throw new Error("Expected Claude Code official usage to remain official, not estimated.");
 }
 
-if (!claudeEvents.some((event) => event.type === "step_ended" && event.name === "turn")) {
-  throw new Error("Expected Claude Code Stop to map to a completed turn event.");
+const claudePromptEvent = Array.isArray(claudeEvents)
+  ? claudeEvents.find((event) => event.name === "user_prompt")
+  : undefined;
+
+if (
+  claudePromptEvent?.metadata?.tokenUsage?.estimated !== true ||
+  claudePromptEvent.metadata.tokenUsage.source !== "claude-code-estimate" ||
+  claudePromptEvent.metadata.tokenUsage.method !== "tiktoken:o200k_base" ||
+  claudePromptEvent.metadata.tokenUsage.input <= 0 ||
+  claudePromptEvent.metadata.tokenUsage.output !== 0
+) {
+  throw new Error("Expected Claude Code user prompts to receive estimated input token usage.");
+}
+
+const claudeStopEvent = Array.isArray(claudeEvents)
+  ? claudeEvents.find((event) => event.name === "turn")
+  : undefined;
+
+if (
+  claudeStopEvent?.type !== "llm_call" ||
+  claudeStopEvent.metadata?.tokenUsage?.estimated !== true ||
+  claudeStopEvent.metadata.tokenUsage.source !== "claude-code-estimate" ||
+  claudeStopEvent.metadata.tokenUsage.input !== 0 ||
+  claudeStopEvent.metadata.tokenUsage.output <= 0
+) {
+  throw new Error("Expected Claude Code Stop hooks to receive estimated output token usage.");
+}
+
+if (
+  claudeRun?.metadata?.summary?.tokenUsage?.estimated !== true ||
+  (claudeRun.metadata.summary.tokenUsage.input ?? 0) <= 0 ||
+  (claudeRun.metadata.summary.tokenUsage.output ?? 0) <= 0 ||
+  (claudeRun.metadata.summary.tokenUsage.total ?? 0) <= 12450
+) {
+  throw new Error("Expected Claude Code fallback token estimates to be summarized with official usage.");
+}
+
+if (claudeEventsJson.includes(claudeSecretPrompt)) {
+  throw new Error("Expected Claude Code hook ingestion to redact raw prompt.");
 }
 
 if (!claudeEventsJson.includes(claudeSecretCommand)) {
