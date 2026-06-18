@@ -77,6 +77,11 @@ exporter = { otlp-http = {
 Codex OTel `response.completed`/SSE usage fields are normalized into
 `metadata.tokenUsage` as official usage. The collector also accepts the same
 payload at `/v1/logs` for OTLP-compatible local testing.
+When Codex telemetry exposes reasoning output tokens, ToolTrace stores them in
+`metadata.tokenUsage.reasoningOutput`. If the payload does not provide an
+official total, ToolTrace includes those reasoning tokens in the derived
+`total`; if an official `total_tokens` value is present, that value remains
+authoritative to avoid double counting.
 
 For Claude Code, ToolTrace reads usage fields that are present in hook payloads.
 Completed Claude Code `Agent` tool responses can include `totalTokens` and a

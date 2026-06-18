@@ -455,6 +455,28 @@ await expectAccepted(
                   attributes: [
                     { key: "conversation_id", value: { stringValue: codexOtelSessionId } }
                   ]
+                },
+                {
+                  timeUnixNano: (BigInt(Date.now()) * 1_000_000n).toString(),
+                  body: {
+                    stringValue: JSON.stringify({
+                      type: "response.completed",
+                      model: "gpt-5.4",
+                      response: {
+                        usage: {
+                          input_tokens: 10,
+                          output_tokens: 2,
+                          total_tokens: 12,
+                          output_tokens_details: {
+                            reasoning_tokens: 3
+                          }
+                        }
+                      }
+                    })
+                  },
+                  attributes: [
+                    { key: "conversation_id", value: { stringValue: codexOtelSessionId } }
+                  ]
                 }
               ]
             }
@@ -498,12 +520,23 @@ if (
   !Array.isArray(codexOtelEvents) ||
   !codexOtelEvents.some(
     (event) =>
-      event.metadata?.tokenUsage?.total === 75 &&
+      event.metadata?.tokenUsage?.total === 80 &&
       event.metadata.tokenUsage.cachedInput === 10 &&
       event.metadata.tokenUsage.reasoningOutput === 5
   )
 ) {
-  throw new Error("Expected Codex OTel stringified usage payloads to be normalized.");
+  throw new Error("Expected Codex OTel reasoning usage to be included in derived totals.");
+}
+
+if (
+  !Array.isArray(codexOtelEvents) ||
+  !codexOtelEvents.some(
+    (event) =>
+      event.metadata?.tokenUsage?.total === 12 &&
+      event.metadata.tokenUsage.reasoningOutput === 3
+  )
+) {
+  throw new Error("Expected Codex OTel explicit totals to remain authoritative.");
 }
 
 const claudeSessionId = "claude_session_smoke";

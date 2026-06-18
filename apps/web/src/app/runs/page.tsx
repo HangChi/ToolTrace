@@ -439,6 +439,9 @@ function TokenCell({
       <div className="text-[11px] text-muted-foreground">
         in {(tokenUsage?.input ?? 0).toLocaleString()} / out{" "}
         {(tokenUsage?.output ?? 0).toLocaleString()}
+        {tokenUsage?.reasoningOutput
+          ? ` / reasoning ${tokenUsage.reasoningOutput.toLocaleString()}`
+          : ""}
       </div>
       {tokenUsage?.estimated ? (
         <div className="text-[10px] text-muted-foreground">

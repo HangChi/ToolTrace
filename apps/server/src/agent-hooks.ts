@@ -834,16 +834,6 @@ function parseCodexUsage(usage: Record<string, unknown>): TokenUsage | undefined
       "gen_ai.usage.output_tokens",
       "gen_ai.usage.completion_tokens"
     ) ?? 0;
-  const total =
-    getNumber(
-      usage,
-      "total_tokens",
-      "totalTokens",
-      "total",
-      "totalTokenCount",
-      "gen_ai.usage.total_tokens"
-    ) ??
-    input + output;
   const cachedInput =
     getNumber(
       usage,
@@ -865,11 +855,28 @@ function parseCodexUsage(usage: Record<string, unknown>): TokenUsage | undefined
       "reasoning_output_tokens",
       "reasoningOutputTokens",
       "reasoningOutput",
+      "reasoning_tokens",
+      "reasoningTokens",
+      "reasoning_token_count",
+      "reasoningTokenCount",
+      "thoughtsTokenCount",
       "gen_ai.usage.reasoning_output_tokens"
     ) ??
     getNumber(usage, "output_tokens_details.reasoning_tokens") ??
+    getNumber(usage, "completion_tokens_details.reasoning_tokens") ??
     getNestedNumber(usage, ["output_tokens_details", "reasoning_tokens"]) ??
-    getNestedNumber(usage, ["outputTokensDetails", "reasoningTokens"]);
+    getNestedNumber(usage, ["outputTokensDetails", "reasoningTokens"]) ??
+    getNestedNumber(usage, ["completion_tokens_details", "reasoning_tokens"]) ??
+    getNestedNumber(usage, ["completionTokensDetails", "reasoningTokens"]);
+  const explicitTotal = getNumber(
+    usage,
+    "total_tokens",
+    "totalTokens",
+    "total",
+    "totalTokenCount",
+    "gen_ai.usage.total_tokens"
+  );
+  const total = explicitTotal ?? input + output + (reasoningOutput ?? 0);
 
   if (input === 0 && output === 0 && total === 0) {
     return undefined;
