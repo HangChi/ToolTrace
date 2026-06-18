@@ -73,7 +73,7 @@ export const copy = {
       confirmDelete:
         "\u786e\u5b9a\u5220\u9664\u8fd9\u6761\u8fd0\u884c\u8bb0\u5f55\u5417\uff1f\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002",
       deleteFailed: "\u5220\u9664\u5931\u8d25\uff1a",
-      costUnpriced: "\u672a\u914d\u7f6e",
+      costUnpriced: "\u4ef7\u683c\u672a\u77e5",
       costEstimated: "\u4f30\u7b97",
       costUsdOnly: "\u6c47\u7387\u4e0d\u53ef\u7528",
       emptyTitle: "\u8fd8\u6ca1\u6709\u6355\u83b7\u5230\u8fd0\u884c",

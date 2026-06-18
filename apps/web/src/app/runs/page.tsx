@@ -568,19 +568,15 @@ function TokenCell({
 }) {
   const total = tokenUsage?.total ?? 0;
 
-  if (total === 0) {
+  if (!tokenUsage || total === 0) {
     return <span className="text-[13px] text-muted-foreground">-</span>;
   }
 
   return (
-    <div className="whitespace-normal font-mono text-xs tabular-nums">
+    <div className="whitespace-normal font-mono text-xs tabular-nums" title={getTokenUsageTitle(locale)}>
       <div className="font-semibold text-foreground">{total.toLocaleString()}</div>
       <div className="text-[11px] text-muted-foreground">
-        in {(tokenUsage?.input ?? 0).toLocaleString()} / out{" "}
-        {(tokenUsage?.output ?? 0).toLocaleString()}
-        {tokenUsage?.reasoningOutput
-          ? ` / reasoning ${tokenUsage.reasoningOutput.toLocaleString()}`
-          : ""}
+        {formatTokenUsageParts(tokenUsage, locale).join(" / ")}
       </div>
       {tokenUsage?.estimated ? (
         <div className="text-[10px] text-muted-foreground">
@@ -589,6 +585,28 @@ function TokenCell({
       ) : null}
     </div>
   );
+}
+
+function formatTokenUsageParts(tokenUsage: NonNullable<RunSummary["tokenUsage"]>, locale: Locale) {
+  const inputLabel = locale === "zh" ? "\u8f93\u5165" : "in";
+  const outputLabel = locale === "zh" ? "\u8f93\u51fa" : "out";
+  const reasoningLabel = locale === "zh" ? "\u63a8\u7406" : "reasoning";
+  const parts = [
+    `${inputLabel} ${(tokenUsage.input ?? 0).toLocaleString()}`,
+    `${outputLabel} ${(tokenUsage.output ?? 0).toLocaleString()}`
+  ];
+
+  if (tokenUsage.reasoningOutput) {
+    parts.push(`${reasoningLabel} ${tokenUsage.reasoningOutput.toLocaleString()}`);
+  }
+
+  return parts;
+}
+
+function getTokenUsageTitle(locale: Locale) {
+  return locale === "zh"
+    ? "\u8f93\u5165=prompt/\u4e0a\u4e0b\u6587 token\uff1b\u8f93\u51fa=\u53ef\u89c1\u751f\u6210 token\uff1b\u63a8\u7406=\u9690\u85cf\u601d\u8003 token\uff0c\u901a\u5e38\u6309\u8f93\u51fa\u8ba1\u8d39\u3002"
+    : "in=prompt/context tokens; out=visible generated tokens; reasoning=hidden reasoning tokens, usually billed as output.";
 }
 
 function getSummaryTotal(summary: RunSummary) {

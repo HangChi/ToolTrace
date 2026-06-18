@@ -96,6 +96,25 @@ the collector, such as `UserPromptSubmit.prompt` and
 `Stop.last_assistant_message`. They do not include hidden reasoning, unexposed
 system context, conversation history, or tool payloads that remain redacted.
 
+## Cost Estimates
+
+The dashboard estimates API-equivalent cost from source-provided token usage.
+For OpenAI models, the built-in table uses the current Standard API rates per
+1M tokens. Cached input tokens use the cached-input rate, and generated tokens
+use the output rate.
+
+Reasoning tokens are treated as billable output tokens. Some OpenAI responses
+report `output_tokens` with reasoning already included; some Codex telemetry
+streams expose visible output and `reasoningOutput` separately. ToolTrace uses
+`total - input` when an official or derived total is available, so it includes
+separate reasoning tokens without double-counting responses where output already
+contains reasoning.
+
+Anthropic cache usage is priced with the provider's cache multipliers: 5-minute
+cache writes at 1.25x input and cache reads at 0.1x input. You can override or
+add model rates with `TOOLTRACE_MODEL_PRICES_JSON`. Model labels without a
+public rate, such as workflow-specific Codex labels, remain shown as unpriced.
+
 Set `TOOLTRACE_ENDPOINT` to target a non-default collector:
 
 ```bash

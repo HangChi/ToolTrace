@@ -690,16 +690,18 @@ function EventPrimaryDetail({ event, locale }: { event: TraceEvent; locale: Loca
   }
 
   if (tokenUsage?.total) {
+    const labels = getTokenUsageLabels(locale);
+
     return (
       <div className="mt-3 flex flex-wrap gap-2 font-mono text-xs tabular-nums">
-        <MetadataBadge value={`total ${tokenUsage.total.toLocaleString()}`} />
-        <MetadataBadge value={`in ${(tokenUsage.input ?? 0).toLocaleString()}`} />
-        <MetadataBadge value={`out ${(tokenUsage.output ?? 0).toLocaleString()}`} />
+        <MetadataBadge value={`${labels.total} ${tokenUsage.total.toLocaleString()}`} />
+        <MetadataBadge value={`${labels.input} ${(tokenUsage.input ?? 0).toLocaleString()}`} />
+        <MetadataBadge value={`${labels.output} ${(tokenUsage.output ?? 0).toLocaleString()}`} />
         {tokenUsage.estimated ? <MetadataBadge value={locale === "zh" ? "估算" : "estimated"} /> : null}
         {tokenUsage.method ? <MetadataBadge value={tokenUsage.method} /> : null}
-        {tokenUsage.cachedInput ? <MetadataBadge value={`cached ${tokenUsage.cachedInput.toLocaleString()}`} /> : null}
+        {tokenUsage.cachedInput ? <MetadataBadge value={`${labels.cached} ${tokenUsage.cachedInput.toLocaleString()}`} /> : null}
         {tokenUsage.reasoningOutput ? (
-          <MetadataBadge value={`reasoning ${tokenUsage.reasoningOutput.toLocaleString()}`} />
+          <MetadataBadge value={`${labels.reasoning} ${tokenUsage.reasoningOutput.toLocaleString()}`} />
         ) : null}
       </div>
     );
@@ -715,6 +717,24 @@ function EventPrimaryDetail({ event, locale }: { event: TraceEvent; locale: Loca
   }
 
   return null;
+}
+
+function getTokenUsageLabels(locale: Locale) {
+  return locale === "zh"
+    ? {
+        total: "\u603b\u8ba1",
+        input: "\u8f93\u5165",
+        output: "\u8f93\u51fa",
+        cached: "\u7f13\u5b58",
+        reasoning: "\u63a8\u7406"
+      }
+    : {
+        total: "total",
+        input: "in",
+        output: "out",
+        cached: "cached",
+        reasoning: "reasoning"
+      };
 }
 
 function CategoryBadge({ event, locale }: { event: TraceEvent; locale: Locale }) {

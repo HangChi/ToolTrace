@@ -13,8 +13,32 @@ const openAiCost = calculateRunCost(
   { rate: 7.2, source: "env" }
 );
 
-expectClose(openAiCost.usd, 0.0002078, "OpenAI cached input cost");
-expectClose(openAiCost.cny, 0.00149616, "OpenAI CNY conversion");
+expectClose(openAiCost.usd, 0.000415, "OpenAI cached input cost");
+expectClose(openAiCost.cny, 0.002988, "OpenAI CNY conversion");
+
+const openAiReasoningSeparatedCost = calculateRunCost({
+  models: ["gpt-5.5"],
+  tokenUsage: {
+    input: 15,
+    output: 471,
+    reasoningOutput: 11394,
+    total: 11880
+  }
+});
+
+expectClose(openAiReasoningSeparatedCost.usd, 0.356025, "OpenAI separated reasoning output cost");
+
+const openAiReasoningIncludedCost = calculateRunCost({
+  models: ["gpt-5.5"],
+  tokenUsage: {
+    input: 75,
+    output: 1186,
+    reasoningOutput: 1024,
+    total: 1261
+  }
+});
+
+expectClose(openAiReasoningIncludedCost.usd, 0.035955, "OpenAI included reasoning output cost");
 
 const claudeCost = calculateRunCost(
   {

@@ -5,6 +5,7 @@ type TokenUsage = {
   cachedInput?: number;
   cacheCreationInput?: number;
   cacheReadInput?: number;
+  reasoningOutput?: number;
   estimated?: boolean;
 };
 
@@ -47,12 +48,12 @@ export type RunCost = {
 const defaultExchangeRateUrl = "https://open.er-api.com/v6/latest/USD";
 
 const baseModelPricing: Record<string, ModelPricing> = {
-  "gpt-5.5": { provider: "openai", input: 2.5, cachedInput: 0.25, output: 15 },
-  "gpt-5.5-pro": { provider: "openai", input: 15, output: 90 },
-  "gpt-5.4": { provider: "openai", input: 1.25, cachedInput: 0.13, output: 7.5 },
-  "gpt-5.4-mini": { provider: "openai", input: 0.375, cachedInput: 0.0375, output: 2.25 },
-  "gpt-5.4-nano": { provider: "openai", input: 0.1, cachedInput: 0.01, output: 0.625 },
-  "gpt-5.4-pro": { provider: "openai", input: 15, output: 90 },
+  "gpt-5.5": { provider: "openai", input: 5, cachedInput: 0.5, output: 30 },
+  "gpt-5.5-pro": { provider: "openai", input: 30, output: 180 },
+  "gpt-5.4": { provider: "openai", input: 2.5, cachedInput: 0.25, output: 15 },
+  "gpt-5.4-mini": { provider: "openai", input: 0.75, cachedInput: 0.075, output: 4.5 },
+  "gpt-5.4-nano": { provider: "openai", input: 0.2, cachedInput: 0.02, output: 1.25 },
+  "gpt-5.4-pro": { provider: "openai", input: 30, output: 180 },
   "gpt-5.3-codex": { provider: "openai", input: 1.75, cachedInput: 0.175, output: 14 },
   "claude-fable-5": {
     provider: "anthropic",
@@ -174,12 +175,13 @@ function getCostUsages(summary: CostSummary | undefined): ModelUsage[] {
 
 function calculateUsageCost(usage: TokenUsage, pricing: ModelPricing) {
   const input = usage.input ?? 0;
-  const output = usage.output ?? 0;
   const cachedInput = usage.cachedInput ?? usage.cacheReadInput ?? 0;
   const cacheCreationInput = usage.cacheCreationInput ?? 0;
   const cacheReadInput = usage.cacheReadInput ?? usage.cachedInput ?? 0;
 
   if (pricing.provider === "anthropic") {
+    const output = getBillableOutputTokens(usage, input + cacheCreationInput + cacheReadInput);
+
     return (
       (input * pricing.input +
         output * pricing.output +
@@ -189,12 +191,29 @@ function calculateUsageCost(usage: TokenUsage, pricing: ModelPricing) {
     );
   }
 
+  const output = getBillableOutputTokens(usage, input);
+
   return (
     (Math.max(0, input - cachedInput) * pricing.input +
       cachedInput * (pricing.cachedInput ?? pricing.input) +
       output * pricing.output) /
     1_000_000
   );
+}
+
+function getBillableOutputTokens(usage: TokenUsage, nonOutputTokens: number) {
+  const output = usage.output ?? 0;
+  const total = usage.total;
+
+  if (typeof total === "number") {
+    const generatedFromTotal = total - nonOutputTokens;
+
+    if (Number.isFinite(generatedFromTotal) && generatedFromTotal >= 0) {
+      return Math.max(output, generatedFromTotal);
+    }
+  }
+
+  return output + (usage.reasoningOutput ?? 0);
 }
 
 function getModelPricing(model: string, provider: string | undefined) {
