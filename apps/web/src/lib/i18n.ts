@@ -211,14 +211,16 @@ export function formatSurface(surface: string | undefined, locale: Locale) {
 
   const labels: Record<Locale, Record<string, string>> = {
     zh: {
-      cli: "\u672c\u5730",
+      cli: "\u7ec8\u7aef/CLI",
       desktop: "\u684c\u9762\u7aef",
-      web: "\u7f51\u9875\u7aef"
+      web: "\u7f51\u9875\u7aef",
+      unknown: "\u672a\u6807\u8bb0\u7aef"
     },
     en: {
-      cli: "Local",
+      cli: "CLI",
       desktop: "Desktop",
-      web: "Web"
+      web: "Web",
+      unknown: "Unmarked"
     }
   };
 
@@ -234,7 +236,7 @@ export function formatRedaction(redaction: string | undefined, locale: Locale) {
     return redaction;
   }
 
-  return locale === "zh" ? "\u4ec5\u5143\u6570\u636e" : "Metadata only";
+  return locale === "zh" ? "\u5143\u6570\u636e\u6a21\u5f0f" : "Metadata mode";
 }
 
 export function formatEventType(type: string, locale: Locale) {

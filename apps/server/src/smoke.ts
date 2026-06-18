@@ -126,6 +126,13 @@ if (metadataRun?.metadata?.agent !== "codex") {
   throw new Error("Expected /runs to return metadata for the agent run.");
 }
 
+if (
+  metadataRun.metadata.surface !== "unknown" ||
+  metadataRun.metadata.surfaceSource !== "legacy-unmarked"
+) {
+  throw new Error("Expected legacy Codex metadata without a source marker to be unmarked.");
+}
+
 const oldPayloadRun = Array.isArray(runs) ? runs.find((run) => run.id === runId) : undefined;
 
 if (oldPayloadRun?.metadata?.agent !== undefined) {
@@ -218,11 +225,12 @@ if (!Array.isArray(metadataEvents) || metadataEvents[0]?.id !== metadataEventId)
 
 const codexSessionId = "codex_session_smoke";
 const codexRunId = "run_codex_codex_session_smoke";
+const codexCliHookPath = "/integrations/codex/hook?surface=cli&surface_source=tooltrace-cli";
 const codexSecretPrompt = "please inspect the private billing token";
 const codexSecretCommand = "cat .env";
 
 await expectAccepted(
-  app.request("/integrations/codex/hook", {
+  app.request(codexCliHookPath, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -238,7 +246,7 @@ await expectAccepted(
 );
 
 await expectAccepted(
-  app.request("/integrations/codex/hook", {
+  app.request(codexCliHookPath, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -255,7 +263,7 @@ await expectAccepted(
 );
 
 await expectAccepted(
-  app.request("/integrations/codex/hook", {
+  app.request(codexCliHookPath, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -279,7 +287,7 @@ await expectAccepted(
 );
 
 await expectAccepted(
-  app.request("/integrations/codex/hook", {
+  app.request(codexCliHookPath, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -303,6 +311,10 @@ const codexRun = Array.isArray(codexRuns)
 
 if (codexRun?.metadata?.agent !== "codex") {
   throw new Error("Expected Codex hook ingestion to create a metadata-backed run.");
+}
+
+if (codexRun.metadata.surface !== "cli" || codexRun.metadata.surfaceSource !== "tooltrace-cli") {
+  throw new Error("Expected Codex hook ingestion to preserve the ToolTrace CLI surface hint.");
 }
 
 if (codexRun?.status !== "success") {
@@ -374,7 +386,7 @@ if (
 }
 
 await expectAccepted(
-  app.request("/integrations/codex/hook", {
+  app.request(codexCliHookPath, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: "not-json"
@@ -396,7 +408,7 @@ const codexOtelSessionId = "codex_otel_session_smoke";
 const codexOtelRunId = "run_codex_codex_otel_session_smoke";
 
 await expectAccepted(
-  app.request("/integrations/codex/otel/v1/logs", {
+  app.request("/integrations/codex/otel/v1/logs?surface=cli&surface_source=tooltrace-cli", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -462,6 +474,15 @@ if (
   !codexOtelEvents.some((event) => event.metadata?.tokenUsage?.total === 120)
 ) {
   throw new Error("Expected Codex OTel logs to persist official token usage.");
+}
+
+if (
+  !Array.isArray(codexOtelEvents) ||
+  !codexOtelEvents.every(
+    (event) => event.metadata?.surface === "cli" && event.metadata.surfaceSource === "tooltrace-cli"
+  )
+) {
+  throw new Error("Expected Codex OTel logs to preserve the ToolTrace CLI surface hint.");
 }
 
 if (

@@ -179,7 +179,10 @@ export function installHooks(target: HookTarget, options: InstallOptions = {}): 
 function installCodexOtelConfig(collectorUrl: string) {
   const path = resolveCodexConfigPath();
   const current = existsSync(path) ? readFileSync(path, "utf8") : "";
-  const endpoint = `${collectorUrl}/integrations/codex/otel/v1/logs`;
+  const endpoint = appendQuery(`${collectorUrl}/integrations/codex/otel/v1/logs`, {
+    surface: "cli",
+    surface_source: "tooltrace-cli"
+  });
   const next = upsertCodexOtelBlock(current, endpoint);
 
   if (next === current) {
@@ -287,7 +290,11 @@ function buildHandler(
   integrationPath: string,
   redaction: RedactionLevel
 ) {
-  const url = `${collectorUrl}${integrationPath}?redaction=${redaction}`;
+  const url = appendQuery(`${collectorUrl}${integrationPath}`, {
+    redaction,
+    surface: "cli",
+    surface_source: `tooltrace-${target}`
+  });
 
   if (target === "claude-code") {
     return {
@@ -299,10 +306,16 @@ function buildHandler(
 
   return {
     type: "command",
-    command: `curl -sS -m 5 -X POST "${url}" -H "Content-Type: application/json" --data-binary @-`,
-    commandWindows: `curl.exe -sS -m 5 -X POST "${url}" -H "Content-Type: application/json" --data-binary '@-'`,
+    command: `curl -sS -m 5 -o /dev/null -X POST "${url}" -H "Content-Type: application/json" --data-binary @-`,
+    commandWindows: `curl.exe -sS -m 5 -o NUL -X POST "${url}" -H "Content-Type: application/json" --data-binary @-`,
     timeout: 5
   };
+}
+
+function appendQuery(url: string, params: Record<string, string>) {
+  const query = new URLSearchParams(params).toString();
+
+  return `${url}${url.includes("?") ? "&" : "?"}${query}`;
 }
 
 function buildManagedGroup(

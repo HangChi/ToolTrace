@@ -240,7 +240,7 @@ export async function listEventsByRunId(
     input: parseJson(event.inputJson),
     output: parseJson(event.outputJson),
     error: parseJson(event.errorJson),
-    metadata: parseJson(event.metadataJson)
+    metadata: normalizeMetadataForDisplay(parseJson(event.metadataJson))
   }));
 }
 
@@ -271,7 +271,7 @@ function ensureColumn(
 }
 
 function mergeRunMetadata(metadata: unknown, summary: EventSummary | undefined) {
-  const base = asRecord(metadata);
+  const base = normalizeMetadataForDisplay(metadata);
 
   if (summary === undefined) {
     return Object.keys(base).length === 0 ? undefined : base;
@@ -281,6 +281,21 @@ function mergeRunMetadata(metadata: unknown, summary: EventSummary | undefined) 
     ...base,
     summary: toPublicSummary(summary)
   };
+}
+
+function normalizeMetadataForDisplay(metadata: unknown) {
+  const base = { ...asRecord(metadata) };
+
+  if (
+    base.agent === "codex" &&
+    typeof base.surface === "string" &&
+    base.surfaceSource === undefined
+  ) {
+    base.surface = "unknown";
+    base.surfaceSource = "legacy-unmarked";
+  }
+
+  return base;
 }
 
 function summarizeEventsByRun(eventRows: Array<typeof events.$inferSelect>) {

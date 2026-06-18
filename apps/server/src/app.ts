@@ -96,13 +96,16 @@ export function createApp() {
 }
 
 async function ingestHook(
-  c: { req: { json: () => Promise<unknown> }; json: (value: unknown, status?: number) => Response },
+  c: {
+    req: { json: () => Promise<unknown>; query: (name: string) => string | undefined };
+    json: (value: unknown, status?: number) => Response;
+  },
   source: AgentHookSource
 ) {
   const body = await readJson(c.req);
 
   try {
-    const result = await ingestAgentHook(source, body);
+    const result = await ingestAgentHook(source, body, getIngestHints(c.req));
 
     return c.json({ ok: true, ...result }, 202);
   } catch (error) {
@@ -118,12 +121,15 @@ async function ingestHook(
 }
 
 async function ingestCodexOtel(
-  c: { req: { json: () => Promise<unknown> }; json: (value: unknown, status?: number) => Response }
+  c: {
+    req: { json: () => Promise<unknown>; query: (name: string) => string | undefined };
+    json: (value: unknown, status?: number) => Response;
+  }
 ) {
   const body = await readJson(c.req);
 
   try {
-    const result = await ingestCodexOtelLogs(body);
+    const result = await ingestCodexOtelLogs(body, getIngestHints(c.req));
 
     return c.json({ ok: true, ...result }, 202);
   } catch (error) {
@@ -136,6 +142,13 @@ async function ingestCodexOtel(
       202
     );
   }
+}
+
+function getIngestHints(request: { query: (name: string) => string | undefined }) {
+  return {
+    surface: request.query("surface"),
+    surfaceSource: request.query("surface_source") ?? request.query("surfaceSource")
+  };
 }
 
 async function readJson(request: { json: () => Promise<unknown> }) {

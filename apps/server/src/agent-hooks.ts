@@ -21,6 +21,11 @@ type NormalizedTrace = {
   runUpdate?: UpdateRun;
 };
 
+type IngestHints = {
+  surface?: string;
+  surfaceSource?: string;
+};
+
 type TrackingCategory = "command" | "tool" | "mcp" | "skill" | "tokens" | "lifecycle";
 
 const redactionLevel = "metadata";
@@ -76,8 +81,12 @@ const runningHookEvents = new Set([
   "PermissionDenied"
 ]);
 
-export async function ingestAgentHook(source: AgentHookSource, payload: unknown) {
-  const normalized = normalizeAgentHook(source, payload);
+export async function ingestAgentHook(
+  source: AgentHookSource,
+  payload: unknown,
+  hints: IngestHints = {}
+) {
+  const normalized = normalizeAgentHook(source, payload, hints);
   await persistTrace(normalized);
 
   return {
@@ -86,8 +95,8 @@ export async function ingestAgentHook(source: AgentHookSource, payload: unknown)
   };
 }
 
-export async function ingestCodexOtelLogs(payload: unknown) {
-  const normalized = normalizeCodexOtelLogs(payload);
+export async function ingestCodexOtelLogs(payload: unknown, hints: IngestHints = {}) {
+  const normalized = normalizeCodexOtelLogs(payload, hints);
 
   for (const trace of normalized) {
     await persistTrace(trace);
@@ -114,7 +123,11 @@ async function persistTrace(normalized: NormalizedTrace) {
   }
 }
 
-export function normalizeAgentHook(source: AgentHookSource, payload: unknown): NormalizedTrace {
+export function normalizeAgentHook(
+  source: AgentHookSource,
+  payload: unknown,
+  hints: IngestHints = {}
+): NormalizedTrace {
   const body = asRecord(payload);
   const hookEvent = getString(body, "hook_event_name", "hookEventName", "hookEvent") ?? "unknown";
   const sessionId =
@@ -134,9 +147,11 @@ export function normalizeAgentHook(source: AgentHookSource, payload: unknown): N
   const isKnownHookEvent = knownHookEventSet.has(hookEvent);
   const status = isKnownHookEvent ? getHookStatus(hookEvent) : "error";
   const eventType = isKnownHookEvent ? getHookEventType(hookEvent, tokenUsage) : "error";
+  const surface = getHookSurface(source, body, hints);
   const metadata = compactMetadata({
     agent: source,
-    surface: getHookSurface(source, body),
+    surface: surface?.value,
+    surfaceSource: surface?.source,
     sessionId,
     turnId,
     promptId,
@@ -206,7 +221,7 @@ export function normalizeAgentHook(source: AgentHookSource, payload: unknown): N
   };
 }
 
-export function normalizeCodexOtelLogs(payload: unknown): NormalizedTrace[] {
+export function normalizeCodexOtelLogs(payload: unknown, hints: IngestHints = {}): NormalizedTrace[] {
   const traces: NormalizedTrace[] = [];
   const root = asRecord(payload);
   const resourceLogs = asArray(root.resourceLogs);
@@ -291,9 +306,11 @@ export function normalizeCodexOtelLogs(payload: unknown): NormalizedTrace[] {
           skillName,
           tokenUsage
         });
+        const surface = getOtelSurface(attributes, bodyRecord, hints);
         const metadata = compactMetadata({
           agent: "codex",
-          surface: "cli",
+          surface: surface?.value,
+          surfaceSource: surface?.source,
           provider: "openai",
           sessionId,
           redactionLevel,
@@ -924,14 +941,87 @@ function getDurationMs(body: Record<string, unknown>, tokenUsage: TokenUsage | u
   );
 }
 
-function getHookSurface(source: AgentHookSource, body: Record<string, unknown>) {
+function getHookSurface(source: AgentHookSource, body: Record<string, unknown>, hints: IngestHints) {
   const explicit = getString(body, "surface", "client", "client_name", "clientName");
 
   if (explicit) {
-    return explicit;
+    return {
+      value: normalizeSurfaceName(explicit),
+      source: "explicit"
+    };
   }
 
-  return source === "codex" ? "desktop" : "cli";
+  return getHintSurface(hints) ?? getDefaultSurface(source);
+}
+
+function getOtelSurface(
+  attributes: Record<string, unknown>,
+  body: Record<string, unknown>,
+  hints: IngestHints
+) {
+  const explicit = getFirstString(
+    attributes,
+    body,
+    "surface",
+    "client",
+    "client.name",
+    "client_name",
+    "clientName",
+    "codex.surface",
+    "codex.client",
+    "codex.client_name",
+    "app.surface",
+    "app.client"
+  );
+
+  if (explicit) {
+    return {
+      value: normalizeSurfaceName(explicit),
+      source: "explicit"
+    };
+  }
+
+  return getHintSurface(hints);
+}
+
+function getHintSurface(hints: IngestHints) {
+  if (!hints.surface) {
+    return undefined;
+  }
+
+  return {
+    value: normalizeSurfaceName(hints.surface),
+    source: hints.surfaceSource ?? "collector-hint"
+  };
+}
+
+function getDefaultSurface(source: AgentHookSource) {
+  if (source === "claude-code") {
+    return {
+      value: "cli",
+      source: "default"
+    };
+  }
+
+  return undefined;
+}
+
+function normalizeSurfaceName(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (["desktop", "codex-desktop", "codex_desktop", "app"].includes(normalized)) {
+    return "desktop";
+  }
+
+  if (["cli", "terminal", "shell", "codex-cli", "codex_cli", "local"].includes(normalized)) {
+    return "cli";
+  }
+
+  if (["web", "browser"].includes(normalized)) {
+    return "web";
+  }
+
+  return value;
 }
 
 function attributesToObject(value: unknown) {
