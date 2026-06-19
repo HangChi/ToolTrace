@@ -537,19 +537,23 @@ function shouldIncludeRunInList({
   summary: EventSummary | undefined;
   status: string;
 }) {
-  if (!isCollectorRun(input)) {
+  const collectorSource = getCollectorSource(input);
+
+  if (!collectorSource) {
     return true;
   }
 
-  if (isStale && (!summary || getSummaryActionTotal(summary) === 0)) {
+  if (!summary) {
+    return !isStale && status === "error";
+  }
+
+  const visibleTotal = getSummaryDefaultVisibleTotal(summary, collectorSource);
+
+  if (isStale && visibleTotal === 0) {
     return false;
   }
 
-  if (!summary) {
-    return status === "error";
-  }
-
-  return getSummaryActionTotal(summary) > 0 || summary.hasErrorEvent;
+  return visibleTotal > 0 || summary.hasErrorEvent;
 }
 
 function isStaleClosedRun(run: typeof runs.$inferSelect) {
@@ -560,10 +564,10 @@ function isStaleClosedRun(run: typeof runs.$inferSelect) {
   );
 }
 
-function isCollectorRun(input: unknown) {
+function getCollectorSource(input: unknown) {
   const source = getString(asRecord(input).source);
 
-  return source === "agent-hook" || source === "codex-otel";
+  return source === "agent-hook" || source === "codex-otel" ? source : undefined;
 }
 
 function getSummaryActionTotal(summary: EventSummary) {
@@ -572,6 +576,22 @@ function getSummaryActionTotal(summary: EventSummary) {
     summary.toolCount +
     summary.mcpCount +
     summary.skillCount
+  );
+}
+
+function getSummaryDefaultVisibleTotal(
+  summary: EventSummary,
+  collectorSource: "agent-hook" | "codex-otel"
+) {
+  if (collectorSource === "codex-otel") {
+    return getSummaryActionTotal(summary);
+  }
+
+  return (
+    getSummaryActionTotal(summary) +
+    summary.promptCount +
+    summary.turnCount +
+    summary.tokenUsage.total
   );
 }
 

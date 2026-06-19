@@ -147,8 +147,13 @@ export function normalizeAgentHook(
   const mcpTool = parseMcpTool(toolName);
   const skillName = getSkillName(body, toolName, hookEvent);
   const toolKind = getToolKind(toolName);
+  const transcriptTokenUsage =
+    source === "claude-code" && shouldUseClaudeTranscriptUsage(hookEvent)
+      ? claudeTranscript?.tokenUsage
+      : undefined;
   const tokenUsage =
     extractTokenUsage(source, body, { model, provider }) ??
+    transcriptTokenUsage ??
     estimateHookTokenUsage(source, body, hookEvent, model);
   const category = getTrackingCategory({
     hookEvent,
@@ -770,6 +775,7 @@ function getHookModel(
 
 type ClaudeTranscriptInfo = {
   model?: string;
+  tokenUsage?: TokenUsage;
 };
 
 function readClaudeTranscriptInfo(body: Record<string, unknown>): ClaudeTranscriptInfo | undefined {
@@ -782,20 +788,31 @@ function readClaudeTranscriptInfo(body: Record<string, unknown>): ClaudeTranscri
   try {
     const windowedContent = readTextFileTail(transcriptPath, maxClaudeTranscriptBytes);
     const lines = windowedContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
+    let model: string | undefined;
+    let tokenUsage: TokenUsage | undefined;
 
     for (let index = lines.length - 1; index >= 0; index -= 1) {
       const record = asRecord(parseJsonString(lines[index]));
-      const model = getClaudeTranscriptModel(record);
+      model ??= getClaudeTranscriptModel(record);
+      tokenUsage ??= getClaudeTranscriptTokenUsage(record, model);
 
-      if (model !== undefined) {
-        return { model };
+      if (model !== undefined && tokenUsage !== undefined) {
+        return { model, tokenUsage };
       }
+    }
+
+    if (model !== undefined || tokenUsage !== undefined) {
+      return { model, tokenUsage };
     }
   } catch {
     return undefined;
   }
 
   return undefined;
+}
+
+function shouldUseClaudeTranscriptUsage(hookEvent: string) {
+  return hookEvent === "Stop";
 }
 
 function readTextFileTail(path: string, maxBytes: number) {
@@ -852,6 +869,42 @@ function getHookProvider(
     inferProviderFromModel(model) ??
     (source === "claude-code" && model ? "anthropic" : undefined)
   );
+}
+
+function getClaudeTranscriptTokenUsage(
+  record: Record<string, unknown>,
+  model: string | undefined
+): TokenUsage | undefined {
+  const message = asRecord(record.message);
+  const response = asRecord(record.response);
+  const result = asRecord(record.result);
+  const usage =
+    getFirstNonEmptyRecord(
+      getValue(message, "usage", "usage_metadata", "usageMetadata", "token_usage", "tokenUsage"),
+      getValue(response, "usage", "usage_metadata", "usageMetadata", "token_usage", "tokenUsage"),
+      getValue(result, "usage", "usage_metadata", "usageMetadata", "token_usage", "tokenUsage"),
+      getValue(record, "usage", "usage_metadata", "usageMetadata", "token_usage", "tokenUsage")
+    );
+
+  if (usage === undefined) {
+    return undefined;
+  }
+
+  const usageModel =
+    model ??
+    getClaudeTranscriptModel(record) ??
+    getString(usage, "model", "model_id", "modelId");
+  const provider =
+    getUsageProvider(usage) ??
+    inferProviderFromModel(usageModel);
+  const tokenUsage = parseUsageCandidate(usage, "claude-code", provider);
+
+  return tokenUsage === undefined
+    ? undefined
+    : compactTokenUsage({
+        ...tokenUsage,
+        source: "claude-code-transcript"
+      });
 }
 
 function normalizeProviderName(provider: string | undefined) {
@@ -1676,6 +1729,18 @@ function getFirstString(
   ...keys: string[]
 ) {
   return getString(first, ...keys) ?? getString(second, ...keys);
+}
+
+function getFirstNonEmptyRecord(...values: unknown[]) {
+  for (const value of values) {
+    const record = asRecord(value);
+
+    if (Object.keys(record).length > 0) {
+      return record;
+    }
+  }
+
+  return undefined;
 }
 
 function getString(record: Record<string, unknown>, ...keys: string[]) {

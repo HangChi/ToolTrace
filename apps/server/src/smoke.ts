@@ -822,23 +822,13 @@ const promptOnlyRun = Array.isArray(promptOnlyRuns)
   ? promptOnlyRuns.find((run) => run.id === codexPromptOnlyRunId)
   : undefined;
 
-if (promptOnlyRun !== undefined) {
-  throw new Error("Expected prompt-only Codex CLI runs to be hidden in the default runs list.");
-}
-
-const promptOnlyUntrackedRunsResponse = await app.request("/runs?includeUntracked=1");
-const promptOnlyUntrackedRuns = await promptOnlyUntrackedRunsResponse.json();
-const promptOnlyUntrackedRun = Array.isArray(promptOnlyUntrackedRuns)
-  ? promptOnlyUntrackedRuns.find((run) => run.id === codexPromptOnlyRunId)
-  : undefined;
-
 if (
-  promptOnlyUntrackedRun?.metadata?.summary?.promptCount !== 1 ||
-  promptOnlyUntrackedRun.metadata.summary.turnCount !== 1 ||
-  promptOnlyUntrackedRun.metadata.summary.commandCount !== 0 ||
-  (promptOnlyUntrackedRun.metadata.summary.tokenUsage?.total ?? 0) <= 0
+  promptOnlyRun?.metadata?.summary?.promptCount !== 1 ||
+  promptOnlyRun.metadata.summary.turnCount !== 1 ||
+  promptOnlyRun.metadata.summary.commandCount !== 0 ||
+  (promptOnlyRun.metadata.summary.tokenUsage?.total ?? 0) <= 0
 ) {
-  throw new Error("Expected prompt-only Codex CLI runs to be available with includeUntracked=1.");
+  throw new Error("Expected prompt-only Codex hook runs to remain visible in the default runs list.");
 }
 
 const codexExpansionSessionId = "codex_expansion_skill_smoke";
@@ -1277,6 +1267,13 @@ const claudeSecretCommand = "cat ~/.ssh/id_rsa";
 const claudeTranscriptSessionId = "claude_transcript_model_smoke";
 const claudeTranscriptRunId = "run_claude-code_claude_transcript_model_smoke";
 const claudeTranscriptModel = "claude-sonnet-4-5-20250929";
+const claudeTranscriptUsage = {
+  input_tokens: 6000,
+  output_tokens: 321,
+  cache_creation_input_tokens: 10,
+  cache_read_input_tokens: 789
+};
+const claudeTranscriptUsageTotal = 7120;
 const claudeTranscriptPath = join(tmpdir(), `tooltrace-claude-transcript-${Date.now()}.jsonl`);
 
 writeFileSync(
@@ -1294,6 +1291,7 @@ writeFileSync(
       message: {
         role: "assistant",
         model: claudeTranscriptModel,
+        usage: claudeTranscriptUsage,
         content: [{ type: "text", text: "Transcript-backed response." }]
       }
     })
@@ -1552,16 +1550,35 @@ await expectAccepted(
   "Claude Code transcript-model Stop hook"
 );
 
-const claudeTranscriptRunsResponse = await app.request("/runs?includeUntracked=1");
+const claudeTranscriptRunsResponse = await app.request("/runs");
 const claudeTranscriptRuns = await claudeTranscriptRunsResponse.json();
 const claudeTranscriptRun = Array.isArray(claudeTranscriptRuns)
   ? claudeTranscriptRuns.find((run) => run.id === claudeTranscriptRunId)
   : undefined;
 const claudeTranscriptSummary = claudeTranscriptRun?.metadata?.summary;
 const claudeTranscriptModelUsage = claudeTranscriptSummary?.modelUsage?.[0];
+const claudeTranscriptEventsResponse = await app.request(`/runs/${claudeTranscriptRunId}/events`);
+const claudeTranscriptEvents = await claudeTranscriptEventsResponse.json();
+const claudeTranscriptStopEvent = Array.isArray(claudeTranscriptEvents)
+  ? claudeTranscriptEvents.find((event) => event.name === "turn")
+  : undefined;
 
 if (!claudeTranscriptSummary?.models?.includes(claudeTranscriptModel)) {
   throw new Error("Expected Claude Code transcript metadata to supply the run model.");
+}
+
+if (
+  claudeTranscriptStopEvent?.metadata?.tokenUsage?.source !== "claude-code-transcript" ||
+  claudeTranscriptStopEvent.metadata.tokenUsage.estimated === true ||
+  claudeTranscriptStopEvent.metadata.tokenUsage.input !== claudeTranscriptUsage.input_tokens ||
+  claudeTranscriptStopEvent.metadata.tokenUsage.output !== claudeTranscriptUsage.output_tokens ||
+  claudeTranscriptStopEvent.metadata.tokenUsage.cacheCreationInput !==
+    claudeTranscriptUsage.cache_creation_input_tokens ||
+  claudeTranscriptStopEvent.metadata.tokenUsage.cacheReadInput !==
+    claudeTranscriptUsage.cache_read_input_tokens ||
+  claudeTranscriptStopEvent.metadata.tokenUsage.total !== claudeTranscriptUsageTotal
+) {
+  throw new Error("Expected Claude Code Stop hooks to prefer transcript usage over text estimates.");
 }
 
 if (
@@ -1570,7 +1587,7 @@ if (
   claudeTranscriptModelUsage.provider !== "anthropic" ||
   claudeTranscriptModelUsage.tokenUsage.total !== claudeTranscriptSummary.tokenUsage.total
 ) {
-  throw new Error("Expected unmodeled Claude Code estimates to be attributed to the transcript model.");
+  throw new Error("Expected Claude Code transcript model usage to include transcript tokens.");
 }
 
 console.log("ToolTrace API smoke test passed.");

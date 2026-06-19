@@ -108,13 +108,16 @@ For Claude Code, ToolTrace reads usage fields that are present in hook payloads.
 Completed Claude Code `Agent` tool responses can include `totalTokens` and a
 `usage` object with `input_tokens`, `output_tokens`,
 `cache_creation_input_tokens`, and `cache_read_input_tokens`; ToolTrace stores
-those directly without recalculating them. When those fields are absent,
-ToolTrace estimates exposed `UserPromptSubmit.prompt` input and
-`Stop.last_assistant_message` output locally.
-If Claude Code omits the model name from hook payloads, ToolTrace also
-opportunistically reads the tail of the hook-provided `transcript_path` JSONL
-file to recover the latest assistant model metadata. It does not persist
-transcript content.
+those directly without recalculating them. When a Claude Code `Stop` hook omits
+usage fields but provides `transcript_path`, ToolTrace reads the tail of that
+JSONL transcript and prefers the latest assistant `message.usage` over local
+text estimates. If Claude Code omits the model name from hook payloads,
+ToolTrace also uses the transcript tail to recover the latest assistant model
+metadata. It does not persist transcript content.
+
+When hook payloads and transcript usage are both absent, ToolTrace estimates
+exposed `UserPromptSubmit.prompt` input and `Stop.last_assistant_message`
+output locally.
 
 Fallback estimates only cover text that Codex and Claude Code hooks expose to
 the collector, such as `UserPromptSubmit.prompt` and
@@ -181,7 +184,8 @@ explicit and separate from the default metadata mode.
   local hooks; it does not capture hidden reasoning.
 - Cloud-hosted or web-only agent internals are not visible unless they emit
   events through a supported local hook or future telemetry adapter.
-- Claude Code transcript parsing is best-effort and limited to model metadata.
+- Claude Code transcript parsing is best-effort and limited to assistant model
+  metadata and explicit `message.usage` token fields.
 - Token usage prefers source-provided official fields or Codex OTel. Hook-only
   prompt/output payloads from Codex or Claude Code use local estimates and are
   marked as estimated.
