@@ -16,7 +16,7 @@ export function StatusBadge({ status, locale }: { status: string; locale: Locale
     <Badge
       variant="outline"
       className={cn(
-        "text-xs font-medium",
+        "text-xs font-semibold",
         statusStyles[status] ?? "bg-muted text-muted-foreground border-border"
       )}
     >

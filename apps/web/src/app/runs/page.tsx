@@ -97,32 +97,34 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
   const agentSources = getAgentSourceSummary(runs, locale);
 
   return (
-    <main id="main-content" className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background text-foreground">
       <AutoRefresh />
-      <header className="border-b border-border bg-card/95">
-        <div className="w-full px-4 py-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl">
+        <div className="w-full px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-                  <Activity className="h-4 w-4" aria-hidden />
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/20 bg-primary text-primary-foreground shadow-xs">
+                  <Activity className="h-5 w-5" aria-hidden />
                 </span>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-primary">ToolTrace</p>
-                  <h1 className="text-xl font-semibold text-foreground">{text.runs.title}</h1>
+                  <h1 className="text-xl font-semibold leading-tight text-foreground">
+                    {text.runs.title}
+                  </h1>
                 </div>
               </div>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
                 {text.runs.subtitle}
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end">
               <LanguageSwitcher locale={locale} path="/runs" />
               <div
-                className="inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-border bg-background px-3 text-xs shadow-sm"
+                className="inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-border/80 bg-surface-raised px-3 text-xs shadow-xs"
                 title={collectorUrl}
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-status-success" />
+                <span className="h-1.5 w-1.5 rounded-full bg-status-success shadow-[0_0_0_3px_var(--status-success-subtle)]" />
                 <Server className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
                 <span className="font-medium text-foreground">{text.common.collector}</span>
                 <span className="max-w-[220px] truncate font-mono text-muted-foreground">
@@ -134,8 +136,8 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
         </div>
       </header>
 
-      <section className="w-full px-4 py-6 sm:px-6 lg:px-8">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="w-full px-4 py-5 sm:px-6 lg:px-8">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label={text.runs.allRuns} value={totalRuns} icon={Activity} accent="sky" />
           <MetricCard
             label={text.runs.agentSource}
@@ -148,12 +150,12 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
           <MetricCard label={text.runs.errors} value={failedRuns} icon={AlertCircle} accent="red" />
         </div>
 
-        <Card className="mt-5 overflow-hidden border-border bg-card py-0 shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <Card className="mt-5 overflow-hidden py-0">
+          <div className="flex flex-col gap-3 border-b border-border/80 bg-surface-raised px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold text-foreground">{text.runs.recent}</h2>
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-border bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-border/80 bg-surface-muted px-1.5 text-xs text-muted-foreground tabular-nums">
                   {totalRuns}
                 </span>
               </div>
@@ -182,65 +184,65 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
           ) : null}
           {!error && runs.length > 0 ? (
             <form id={runsBulkDeleteFormId}>
-              <Table className="min-w-[2148px] table-fixed">
+              <Table className="min-w-[1802px] table-fixed">
                 <colgroup>
                   <col className="w-[48px]" />
-                  <col className="w-[420px]" />
-                  <col className="w-[150px]" />
-                  <col className="w-[110px]" />
+                  <col className="w-[320px]" />
+                  <col className="w-[130px]" />
+                  <col className="w-[120px]" />
+                  <col className="w-[210px]" />
+                  <col className="w-[240px]" />
                   <col className="w-[220px]" />
-                  <col className="w-[360px]" />
-                  <col className="w-[270px]" />
+                  <col className="w-[160px]" />
                   <col className="w-[190px]" />
-                  <col className="w-[220px]" />
-                  <col className="w-[90px]" />
-                  <col className="w-[72px]" />
+                  <col className="w-[100px]" />
+                  <col className="w-[64px]" />
                 </colgroup>
                 <TableHeader>
-                  <TableRow className="border-border bg-muted/60 hover:bg-muted/60">
-                    <TableHead className="h-10 pl-5 pr-0">
+                  <TableRow className="bg-surface-muted/80 hover:bg-surface-muted/80">
+                    <TableHead className="h-10 pl-4 pr-0">
                       <SelectAllRunsCheckbox
                         formId={runsBulkDeleteFormId}
                         label={text.runs.selectAll}
                       />
                     </TableHead>
-                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                    <TableHead className="h-10">
                       {text.runs.tableRun}
                     </TableHead>
-                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                    <TableHead className="h-10">
                       {text.runs.tableSource}
                     </TableHead>
-                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                    <TableHead className="h-10">
                       {text.runs.tableStatus}
                     </TableHead>
-                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                    <TableHead className="h-10">
                       {text.runs.tableModel}
                     </TableHead>
-                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                    <TableHead className="h-10">
                       {text.runs.tableTracked}
                     </TableHead>
-                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                    <TableHead className="h-10">
                       {text.runs.tableTokens}
                     </TableHead>
-                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                    <TableHead className="h-10">
                       {text.runs.tableCost}
                     </TableHead>
-                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                    <TableHead className="h-10">
                       {text.runs.tableStarted}
                     </TableHead>
-                    <TableHead className="h-10 text-xs font-semibold text-muted-foreground">
+                    <TableHead className="h-10">
                       {text.runs.tableDuration}
                     </TableHead>
-                    <TableHead className="h-10 pr-5" />
+                    <TableHead className="h-10 pr-4" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {runs.map((run) => (
                     <TableRow
                       key={run.id}
-                      className="group border-border/70 transition-colors hover:bg-accent/35"
+                      className="group"
                     >
-                      <TableCell className="py-3 pl-5 pr-0 align-top">
+                      <TableCell className="py-3 pl-4 pr-0 align-top">
                         <input
                           type="checkbox"
                           name="runIds"
@@ -260,7 +262,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                             >
                               {run.name}
                             </Link>
-                            <p className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground">
+                            <p className="mt-1 break-all font-mono text-[11px] leading-4 text-muted-foreground">
                               {run.id}
                             </p>
                           </div>
@@ -310,7 +312,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                           {formatDuration(run.startedAt, run.endedAt, locale)}
                         </span>
                       </TableCell>
-                      <TableCell className="py-3 pr-5 text-right align-top">
+                      <TableCell className="py-3 pr-4 text-right align-top">
                         <DeleteRunButton
                           runId={run.id}
                           label={text.runs.delete}
@@ -338,10 +340,13 @@ function StatusDot({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        "h-2.5 w-2.5 shrink-0 rounded-full border border-card shadow-[0_0_0_3px_var(--muted)]",
-        status === "success" && "bg-status-success",
-        status === "error" && "bg-status-error",
-        status === "running" && "animate-pulse bg-status-warning"
+        "mt-1 h-2.5 w-2.5 shrink-0 rounded-full border border-card",
+        status === "success" &&
+          "bg-status-success shadow-[0_0_0_3px_var(--status-success-subtle)]",
+        status === "error" &&
+          "bg-status-error shadow-[0_0_0_3px_var(--status-error-subtle)]",
+        status === "running" &&
+          "animate-pulse bg-status-warning shadow-[0_0_0_3px_var(--status-warning-subtle)]"
       )}
     />
   );
@@ -397,19 +402,26 @@ function MetricCard({
   };
 
   return (
-    <Card className="border-border bg-card py-0 shadow-sm">
+    <Card className="overflow-hidden py-0">
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-medium text-muted-foreground">{label}</p>
-            <p className="mt-1 text-2xl font-semibold text-foreground tabular-nums">{value}</p>
+            <p className="mt-1 text-2xl font-semibold leading-none text-foreground tabular-nums">
+              {value}
+            </p>
             {detail ? (
-              <p className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground" title={detail}>
+              <p className="mt-2 max-w-[220px] truncate text-xs text-muted-foreground" title={detail}>
                 {detail}
               </p>
             ) : null}
           </div>
-          <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg border", accents[accent])}>
+          <span
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-lg border shadow-xs",
+              accents[accent]
+            )}
+          >
             <Icon className="h-4 w-4" />
           </span>
         </div>
@@ -452,7 +464,7 @@ function SourceCell({ metadata, locale }: { metadata?: AgentMetadata; locale: Lo
     <div>
       <SourceBadge agent={agent} locale={locale} />
       {details.length > 0 ? (
-        <div className="mt-1 font-mono text-[11px] text-muted-foreground">
+        <div className="mt-1.5 font-mono text-[11px] leading-4 text-muted-foreground">
           {details.join(" / ")}
         </div>
       ) : null}
@@ -495,7 +507,7 @@ function SummaryCell({ summary, locale }: { summary?: RunSummary; locale: Locale
         {counts.map((item) => (
           <span
             key={item}
-            className="rounded-md border border-border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+            className="rounded-md border border-border/80 bg-surface-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
           >
             {item}
           </span>

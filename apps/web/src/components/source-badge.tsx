@@ -13,7 +13,7 @@ export function SourceBadge({ agent, locale }: { agent: string; locale: Locale }
   return (
     <Badge
       variant="outline"
-      className={cn("font-mono text-xs font-medium", agentStyles[agent] ?? agentStyles.manual)}
+      className={cn("font-mono text-xs font-semibold", agentStyles[agent] ?? agentStyles.manual)}
     >
       {formatAgent(agent, locale)}
     </Badge>

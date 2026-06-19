@@ -4,8 +4,8 @@ import { Card, CardContent } from "~/components/ui/card";
 export default function RunsLoading() {
   return (
     <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/95">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <header className="border-b border-border/80 bg-background/85">
+        <div className="w-full px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
               <Skeleton className="h-9 w-48" />
@@ -19,10 +19,10 @@ export default function RunsLoading() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="w-full px-4 py-5 sm:px-6 lg:px-8">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="border-border bg-card py-0 shadow-sm">
+            <Card key={i} className="py-0">
               <CardContent className="space-y-2 p-4">
                 <Skeleton className="h-3 w-24" />
                 <Skeleton className="h-8 w-14" />
@@ -31,8 +31,8 @@ export default function RunsLoading() {
           ))}
         </div>
 
-        <Card className="mt-5 overflow-hidden border-border bg-card py-0 shadow-sm">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <Card className="mt-5 overflow-hidden py-0">
+          <div className="flex items-center justify-between border-b border-border/80 bg-surface-raised px-5 py-4">
             <div className="space-y-2">
               <Skeleton className="h-4 w-28" />
               <Skeleton className="h-3 w-56" />

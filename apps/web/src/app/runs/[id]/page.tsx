@@ -168,10 +168,10 @@ export default async function RunDetailPage({
   const sourceMetadata = summary.sourceMetadata;
 
   return (
-    <main id="main-content" className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background text-foreground">
       <AutoRefresh />
-      <header className="border-b border-border bg-card/95">
-        <div className="mx-auto max-w-[1800px] px-4 py-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl">
+        <div className="mx-auto max-w-[1800px] px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3">
             <Button variant="ghost" size="sm" className="-ml-2" asChild>
               <Link href={localizedHref("/runs", locale)}>
@@ -188,7 +188,7 @@ export default async function RunDetailPage({
           <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-semibold text-primary">Trace Detail</p>
-              <h1 className="mt-1 break-all font-mono text-base font-semibold text-foreground sm:text-lg">
+              <h1 className="mt-1 break-all font-mono text-base font-semibold leading-7 text-foreground sm:text-lg">
                 {id}
               </h1>
             </div>
@@ -201,16 +201,16 @@ export default async function RunDetailPage({
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1800px] gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
-        <Card className="overflow-hidden border-border bg-card py-0 shadow-sm">
-          <div className="border-b border-border px-5 py-4">
+      <section className="mx-auto grid max-w-[1800px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8">
+        <Card className="overflow-hidden py-0">
+          <div className="border-b border-border/80 bg-surface-raised px-4 py-4 sm:px-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-foreground">{text.detail.timeline}</h2>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">{text.detail.timelineHelp}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <span className="inline-flex w-fit items-center rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+                <span className="inline-flex w-fit items-center rounded-md border border-border/80 bg-surface-muted px-2 py-1 text-xs text-muted-foreground">
                   {formatFilterCount(events.length, pagination.total, locale)}
                 </span>
                 {counts.hidden > 0 ? (
@@ -222,7 +222,7 @@ export default async function RunDetailPage({
                       visibility === "hidden" ? "display" : "hidden",
                       1
                     )}
-                    className="inline-flex w-fit items-center rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-foreground"
+                    className="inline-flex w-fit items-center rounded-md border border-border/80 bg-surface-muted px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-accent hover:text-foreground"
                     title={
                       visibility === "hidden"
                         ? text.detail.hideOtherEvents
@@ -269,10 +269,10 @@ export default async function RunDetailPage({
         </Card>
 
         <aside className="flex flex-col gap-4">
-          <Card className="border-border bg-card py-0 shadow-sm">
+          <Card className="py-0">
             <CardContent className="p-4">
               <h2 className="text-sm font-semibold text-foreground">{text.detail.summary}</h2>
-              <dl className="mt-4 divide-y divide-border text-sm">
+              <dl className="mt-4 divide-y divide-border/80 text-sm">
                 <SummaryRow label={text.common.collector} value={collectorUrl} />
                 <SummaryRow label="Agent" value={formatAgent(sourceMetadata.agent ?? "manual", locale)} />
                 <SummaryRow label={text.detail.surface} value={formatSurface(sourceMetadata.surface, locale) ?? "-"} />
@@ -285,7 +285,7 @@ export default async function RunDetailPage({
             </CardContent>
           </Card>
 
-          <Card className="border-border bg-card py-0 shadow-sm">
+          <Card className="py-0">
             <CardContent className="p-4">
               <h2 className="text-sm font-semibold text-foreground">{text.detail.failureInspector}</h2>
               {failureInsights.length > 0 ? (
@@ -293,7 +293,7 @@ export default async function RunDetailPage({
                   {failureInsights.map((insight, index) => (
                     <div
                       key={`${insight.eventName}-${insight.title}-${index}`}
-                      className="rounded-lg border border-status-error-border bg-status-error-subtle px-3 py-3"
+                      className="rounded-lg border border-status-error-border bg-status-error-subtle px-3 py-3 shadow-xs"
                     >
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="h-4 w-4 shrink-0 text-status-error" />
@@ -314,7 +314,7 @@ export default async function RunDetailPage({
                   ))}
                 </div>
               ) : (
-                <div className="mt-3 flex items-start gap-2 rounded-lg border border-status-success-border bg-status-success-subtle px-3 py-3 text-sm text-status-success">
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-status-success-border bg-status-success-subtle px-3 py-3 text-sm text-status-success shadow-xs">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{text.detail.noFailures}</span>
                 </div>
@@ -396,7 +396,7 @@ function MiniStat({
   return (
     <div
       className={cn(
-        "flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 shadow-sm",
+        "flex min-w-0 items-center gap-2 rounded-lg border border-border/80 bg-surface-raised px-3 py-2 shadow-xs",
         accent === "danger" && "border-status-error-border bg-status-error-subtle"
       )}
     >
@@ -434,13 +434,13 @@ function FilterBar({
   return (
     <form
       action={localizedHref(`/runs/${runId}`, locale)}
-      className="mt-4 grid gap-3 rounded-lg border border-border bg-background/70 p-3 lg:grid-cols-[minmax(220px,1fr)_160px_180px_160px_auto_auto]"
+      className="mt-4 grid gap-3 rounded-lg border border-border/80 bg-surface-muted p-3 md:grid-cols-2 2xl:grid-cols-[minmax(220px,1fr)_150px_170px_150px_auto_auto]"
     >
       {locale === "en" ? <input type="hidden" name="lang" value="en" /> : null}
       {visibility !== "display" ? <input type="hidden" name="visibility" value={visibility} /> : null}
-      <label className="min-w-0 text-xs font-medium text-muted-foreground">
+      <label className="min-w-0 text-xs font-medium text-muted-foreground md:col-span-2 2xl:col-span-1">
         {text.detail.filterSearch}
-        <span className="mt-1 flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-foreground shadow-xs">
+        <span className="mt-1 flex h-9 items-center gap-2 rounded-md border border-input bg-surface-raised px-3 text-foreground shadow-xs">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
           <input
             name="q"
@@ -517,7 +517,7 @@ function FilterSelect({
       <select
         name={name}
         defaultValue={value}
-        className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-xs outline-none transition-colors focus:border-ring focus:ring-[3px] focus:ring-ring/50"
+        className="mt-1 h-9 w-full rounded-md border border-input bg-surface-raised px-3 text-sm text-foreground shadow-xs outline-none transition-colors focus:border-ring focus:ring-[3px] focus:ring-ring/25"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -547,7 +547,7 @@ function PaginationControls({
   const nextPage = Math.min(pagination.totalPages, pagination.page + 1);
 
   return (
-    <div className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 border-t border-border/80 bg-surface-raised px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
       <div className="text-xs text-muted-foreground tabular-nums">
         {pagination.page.toLocaleString()} / {pagination.totalPages.toLocaleString()}
       </div>
@@ -583,20 +583,20 @@ function Timeline({ events, locale }: { events: TraceEvent[]; locale: Locale }) 
   const text = copy[locale];
 
   return (
-    <ol className="divide-y divide-border">
+    <ol className="divide-y divide-border/70">
       {events.map((event) => (
         <li
           key={event.id}
-          className="grid gap-4 px-5 py-4 transition-colors hover:bg-accent/25 md:grid-cols-[150px_minmax(0,1fr)]"
+          className="grid gap-4 px-4 py-4 transition-colors hover:bg-accent/25 sm:px-5 md:grid-cols-[138px_minmax(0,1fr)]"
         >
           <div className="text-xs text-muted-foreground">
-            <div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 font-mono font-medium text-foreground">
+            <div className="inline-flex items-center gap-1.5 rounded-md border border-border/80 bg-surface-muted px-2 py-1 font-mono font-medium text-foreground shadow-xs">
               <Clock3 className="h-3 w-3 text-muted-foreground" aria-hidden />
               {formatClockTime(event.timestamp, locale)}
             </div>
           </div>
 
-          <article className="relative min-w-0 border-l border-border pl-5">
+          <article className="relative min-w-0 border-l border-border/80 pl-5">
             <span
               className={cn(
                 "absolute -left-[6px] top-1 h-3 w-3 rounded-full border-2 border-card ring-2",
@@ -607,7 +607,7 @@ function Timeline({ events, locale }: { events: TraceEvent[]; locale: Locale }) 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="max-w-full break-words text-sm font-semibold text-foreground">{event.name}</h3>
-                  <span className="rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                  <span className="rounded-md border border-border/80 bg-surface-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
                     {formatEventType(event.type, locale)}
                   </span>
                   <StatusBadge status={event.status} locale={locale} />
@@ -630,13 +630,13 @@ function Timeline({ events, locale }: { events: TraceEvent[]; locale: Locale }) 
                   </div>
                 ) : null}
               </div>
-              <div className="max-w-[360px] shrink-0 break-all text-right font-mono text-[10px] text-muted-foreground">
+              <div className="max-w-[360px] shrink-0 break-all text-left font-mono text-[10px] leading-4 text-muted-foreground lg:text-right">
                 {event.id}
               </div>
             </div>
 
             {event.error ? (
-              <div className="mt-3 rounded-lg border border-status-error-border bg-status-error-subtle px-3 py-2 text-sm text-status-error">
+              <div className="mt-3 rounded-lg border border-status-error-border bg-status-error-subtle px-3 py-2 text-sm text-status-error shadow-xs">
                 {event.error.message}
               </div>
             ) : null}
@@ -647,7 +647,7 @@ function Timeline({ events, locale }: { events: TraceEvent[]; locale: Locale }) 
                 {text.common.jsonDetail}
                 <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" aria-hidden />
               </summary>
-              <pre className="mt-2 max-h-[420px] overflow-auto rounded-lg bg-zinc-950 p-4 text-xs leading-5 text-zinc-100 dark:bg-black">
+              <pre className="mt-2 max-h-[420px] overflow-auto rounded-lg border border-border/80 bg-code p-4 text-xs leading-5 text-zinc-100 shadow-inner">
                 {JSON.stringify(
                   { input: event.input, output: event.output, error: event.error, metadata: event.metadata },
                   null,
@@ -675,7 +675,7 @@ function EventPrimaryDetail({ event, locale }: { event: TraceEvent; locale: Loca
 
   if (command) {
     return (
-      <pre className="mt-3 overflow-x-auto rounded-lg border border-border bg-muted/60 px-3 py-2 font-mono text-xs leading-5 text-foreground">
+      <pre className="mt-3 overflow-x-auto rounded-lg border border-border/80 bg-surface-muted px-3 py-2 font-mono text-xs leading-5 text-foreground">
         {command}
       </pre>
     );
@@ -752,7 +752,7 @@ function CategoryBadge({ event, locale }: { event: TraceEvent; locale: Locale })
   }
 
   return (
-    <span className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
+    <span className="rounded-md border border-border/80 bg-surface-raised px-1.5 py-0.5 text-[11px] text-muted-foreground">
       {labels[category]}
     </span>
   );
@@ -902,7 +902,7 @@ function hasTraceIds(event: TraceEvent) {
 
 function MetadataBadge({ value }: { value: string }) {
   return (
-    <span className="inline-flex max-w-full rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+    <span className="inline-flex max-w-full rounded-md border border-border/80 bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
       {value}
     </span>
   );

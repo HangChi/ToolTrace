@@ -14,17 +14,17 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 border-t border-destructive/25 bg-destructive/10 px-5 py-4 text-sm",
+        "flex items-start gap-3 border-t border-status-error-border bg-status-error-subtle px-5 py-4 text-sm",
         className
       )}
     >
       <AlertTriangle
-        className="mt-0.5 h-5 w-5 shrink-0 text-destructive"
+        className="mt-0.5 h-5 w-5 shrink-0 text-status-error"
         aria-hidden="true"
       />
       <div>
-        <p className="font-medium text-destructive">{copy[locale].common.unavailable}</p>
-        <p className="mt-1 break-words font-mono text-xs leading-5 text-destructive/80">{message}</p>
+        <p className="font-medium text-status-error">{copy[locale].common.unavailable}</p>
+        <p className="mt-1 break-words font-mono text-xs leading-5 text-status-error/90">{message}</p>
       </div>
     </div>
   );

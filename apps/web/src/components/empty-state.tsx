@@ -20,7 +20,7 @@ export function EmptyState({
         className
       )}
     >
-      <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-muted/50">
+      <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-border/80 bg-surface-muted shadow-xs">
         <Inbox className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
       </div>
       <h3 className="text-sm font-semibold text-foreground">{title}</h3>

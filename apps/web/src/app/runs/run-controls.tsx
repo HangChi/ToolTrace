@@ -131,7 +131,7 @@ export function BulkDeleteRunsButton({
     <>
       <div className="flex flex-wrap items-center gap-2">
         {selectedCount > 0 ? (
-          <span className="rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+          <span className="rounded-md border border-border/80 bg-surface-muted px-2 py-1 text-xs text-muted-foreground">
             {formatSelectedCount(selectedText, selectedCount)}
           </span>
         ) : null}
@@ -172,7 +172,7 @@ export function BulkDeleteRunsButton({
           </DialogHeader>
 
           {error ? (
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <p className="rounded-md border border-status-error-border bg-status-error-subtle px-3 py-2 text-xs text-status-error">
               {failedText} {error}
             </p>
           ) : null}
@@ -265,7 +265,7 @@ export function DeleteRunButton({
           </DialogHeader>
 
           {error ? (
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <p className="rounded-md border border-status-error-border bg-status-error-subtle px-3 py-2 text-xs text-status-error">
               {failedText} {error}
             </p>
           ) : null}

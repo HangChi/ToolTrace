@@ -4,8 +4,8 @@ import { Card, CardContent } from "~/components/ui/card";
 export default function RunDetailLoading() {
   return (
     <main className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/95">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <header className="border-b border-border/80 bg-background/85">
+        <div className="mx-auto max-w-[1800px] px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3">
             <Skeleton className="h-8 w-32" />
             <Skeleton className="h-8 w-28" />
@@ -24,9 +24,9 @@ export default function RunDetailLoading() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
-        <Card className="overflow-hidden border-border bg-card py-0 shadow-sm">
-          <div className="space-y-2 border-b border-border px-5 py-4">
+      <section className="mx-auto grid max-w-[1800px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8">
+        <Card className="overflow-hidden py-0">
+          <div className="space-y-2 border-b border-border/80 bg-surface-raised px-5 py-4">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-3 w-80 max-w-full" />
           </div>
@@ -34,7 +34,7 @@ export default function RunDetailLoading() {
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="grid gap-4 md:grid-cols-[150px_minmax(0,1fr)]">
                 <Skeleton className="h-9 w-32" />
-                <div className="space-y-2 border-l border-border pl-5">
+                <div className="space-y-2 border-l border-border/80 pl-5">
                   <Skeleton className="h-5 w-56" />
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-16 w-full" />
@@ -45,18 +45,18 @@ export default function RunDetailLoading() {
         </Card>
 
         <aside className="space-y-4">
-          <Card className="border-border bg-card py-0 shadow-sm">
+          <Card className="py-0">
             <CardContent className="space-y-3 p-4">
               <Skeleton className="h-4 w-24" />
               {Array.from({ length: 7 }).map((_, i) => (
-                <div key={i} className="space-y-1 border-t border-border pt-3 first:border-t-0 first:pt-0">
+                <div key={i} className="space-y-1 border-t border-border/80 pt-3 first:border-t-0 first:pt-0">
                   <Skeleton className="h-3 w-20" />
                   <Skeleton className="h-4 w-full" />
                 </div>
               ))}
             </CardContent>
           </Card>
-          <Card className="border-border bg-card py-0 shadow-sm">
+          <Card className="py-0">
             <CardContent className="space-y-3 p-4">
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-20 w-full" />
