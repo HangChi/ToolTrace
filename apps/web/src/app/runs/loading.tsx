@@ -13,6 +13,7 @@ export default function RunsLoading() {
             </div>
             <div className="flex gap-3">
               <Skeleton className="h-8 w-28" />
+              <Skeleton className="h-8 w-8" />
               <Skeleton className="h-8 w-64" />
             </div>
           </div>

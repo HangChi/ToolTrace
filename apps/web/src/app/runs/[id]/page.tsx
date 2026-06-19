@@ -13,7 +13,14 @@ import {
   Zap
 } from "lucide-react";
 
-import { EmptyState, ErrorState, LanguageSwitcher, SourceBadge, StatusBadge } from "~/components";
+import {
+  EmptyState,
+  ErrorState,
+  LanguageSwitcher,
+  SourceBadge,
+  StatusBadge,
+  ThemeToggle
+} from "~/components";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import {
@@ -179,10 +186,13 @@ export default async function RunDetailPage({
                 {text.detail.back}
               </Link>
             </Button>
-            <LanguageSwitcher
-              locale={locale}
-              path={detailPath(id, filters, visibility, pagination.page)}
-            />
+            <div className="flex items-center gap-2">
+              <LanguageSwitcher
+                locale={locale}
+                path={detailPath(id, filters, visibility, pagination.page)}
+              />
+              <ThemeToggle locale={locale} />
+            </div>
           </div>
 
           <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

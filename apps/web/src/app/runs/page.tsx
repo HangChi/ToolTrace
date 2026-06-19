@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { Activity, AlertCircle, Cpu, Play, Server } from "lucide-react";
 
-import { EmptyState, ErrorState, LanguageSwitcher, SourceBadge, StatusBadge } from "~/components";
+import {
+  EmptyState,
+  ErrorState,
+  LanguageSwitcher,
+  SourceBadge,
+  StatusBadge,
+  ThemeToggle
+} from "~/components";
 import { Card, CardContent } from "~/components/ui/card";
 import {
   Table,
@@ -119,7 +126,10 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end">
-              <LanguageSwitcher locale={locale} path="/runs" />
+              <div className="flex items-center gap-2">
+                <LanguageSwitcher locale={locale} path="/runs" />
+                <ThemeToggle locale={locale} />
+              </div>
               <div
                 className="inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-border/80 bg-surface-raised px-3 text-xs shadow-xs"
                 title={collectorUrl}

@@ -31,6 +31,9 @@ export const copy = {
       rows: "\u6761",
       tokens: "Tokens",
       jsonDetail: "\u67e5\u770b JSON \u8be6\u60c5",
+      themeToggle: "\u5207\u6362\u4e3b\u9898",
+      themeLight: "\u5207\u6362\u5230\u6d45\u8272\u4e3b\u9898",
+      themeDark: "\u5207\u6362\u5230\u6df1\u8272\u4e3b\u9898",
       unavailable: "Collector \u4e0d\u53ef\u7528\uff1a"
     },
     runs: {
@@ -125,6 +128,9 @@ export const copy = {
       rows: "runs",
       tokens: "Tokens",
       jsonDetail: "View JSON details",
+      themeToggle: "Toggle theme",
+      themeLight: "Switch to light theme",
+      themeDark: "Switch to dark theme",
       unavailable: "Collector unavailable: "
     },
     runs: {
