@@ -137,6 +137,10 @@ Anthropic cache usage is priced with the provider's cache multipliers: 5-minute
 cache writes at 1.25x input and cache reads at 0.1x input. You can override or
 add model rates with `TOOLTRACE_MODEL_PRICES_JSON`. Model labels without a
 public rate, such as workflow-specific Codex labels, remain shown as unpriced.
+DeepSeek V4 pricing is also included: cache-hit input tokens use the lower
+cache-hit rate, cache-miss input tokens use the regular input rate, and output
+tokens use the output rate. The legacy `deepseek-chat` and `deepseek-reasoner`
+names are mapped to the DeepSeek V4 Flash compatibility pricing.
 
 Set `TOOLTRACE_ENDPOINT` to target a non-default collector:
 

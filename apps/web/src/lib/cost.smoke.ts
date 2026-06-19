@@ -61,6 +61,43 @@ const claudeCost = calculateRunCost(
 
 expectClose(claudeCost.usd, 0.042879, "Claude cache write/read cost");
 
+const deepSeekProCost = calculateRunCost(
+  {
+    modelUsage: [
+      {
+        model: "deepseek-v4-pro",
+        provider: "deepseek",
+        tokenUsage: {
+          input: 9,
+          output: 455,
+          total: 464
+        }
+      }
+    ]
+  },
+  { rate: 7.2, source: "env" }
+);
+
+expectClose(deepSeekProCost.usd, 0.000399765, "DeepSeek V4 Pro cost");
+expectClose(deepSeekProCost.cny, 0.002878308, "DeepSeek V4 Pro CNY conversion");
+
+const deepSeekAliasCost = calculateRunCost({
+  modelUsage: [
+    {
+      model: "deepseek-reasoner",
+      provider: "deepseek",
+      tokenUsage: {
+        input: 1000,
+        output: 1000,
+        total: 2000,
+        cachedInput: 100
+      }
+    }
+  ]
+});
+
+expectClose(deepSeekAliasCost.usd, 0.00040628, "DeepSeek compatibility alias cost");
+
 const unknownCost = calculateRunCost({
   models: ["unknown-model"],
   tokenUsage: {

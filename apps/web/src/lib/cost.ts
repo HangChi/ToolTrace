@@ -22,7 +22,7 @@ type CostSummary = {
 };
 
 type ModelPricing = {
-  provider: "openai" | "anthropic";
+  provider: "openai" | "anthropic" | "deepseek";
   input: number;
   output: number;
   cachedInput?: number;
@@ -79,7 +79,9 @@ const baseModelPricing: Record<string, ModelPricing> = {
   "claude-sonnet-4.5": { provider: "anthropic", input: 3, cacheWrite5m: 3.75, cacheRead: 0.3, output: 15 },
   "claude-sonnet-4": { provider: "anthropic", input: 3, cacheWrite5m: 3.75, cacheRead: 0.3, output: 15 },
   "claude-haiku-4.5": { provider: "anthropic", input: 1, cacheWrite5m: 1.25, cacheRead: 0.1, output: 5 },
-  "claude-haiku-3.5": { provider: "anthropic", input: 0.8, cacheWrite5m: 1, cacheRead: 0.08, output: 4 }
+  "claude-haiku-3.5": { provider: "anthropic", input: 0.8, cacheWrite5m: 1, cacheRead: 0.08, output: 4 },
+  "deepseek-v4-flash": { provider: "deepseek", input: 0.14, cachedInput: 0.0028, output: 0.28 },
+  "deepseek-v4-pro": { provider: "deepseek", input: 0.435, cachedInput: 0.003625, output: 0.87 }
 };
 
 export async function getUsdCnyRate(): Promise<ExchangeRate | undefined> {
@@ -265,7 +267,9 @@ function isValidPricing(value: ModelPricing) {
   return (
     value !== null &&
     typeof value === "object" &&
-    (value.provider === "openai" || value.provider === "anthropic") &&
+    (value.provider === "openai" ||
+      value.provider === "anthropic" ||
+      value.provider === "deepseek") &&
     isNonnegativeNumber(value.input) &&
     isNonnegativeNumber(value.output)
   );
@@ -299,6 +303,13 @@ function inferPricingKey(model: string, provider: string | undefined) {
     if (dashed.includes("sonnet-4")) return "claude-sonnet-4";
     if (dashed.includes("haiku-4-5")) return "claude-haiku-4.5";
     if (dashed.includes("haiku-3-5")) return "claude-haiku-3.5";
+  }
+
+  if (provider === "deepseek" || normalized.includes("deepseek")) {
+    if (normalized.includes("deepseek-v4-pro")) return "deepseek-v4-pro";
+    if (normalized.includes("deepseek-v4-flash")) return "deepseek-v4-flash";
+    if (normalized.includes("deepseek-chat")) return "deepseek-v4-flash";
+    if (normalized.includes("deepseek-reasoner")) return "deepseek-v4-flash";
   }
 
   return undefined;

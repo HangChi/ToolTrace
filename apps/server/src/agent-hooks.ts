@@ -814,19 +814,22 @@ function getHookProvider(
   body: Record<string, unknown>,
   model: string | undefined
 ) {
-  const explicit =
-    getString(
-      body,
-      "provider",
-      "llm_provider",
-      "llmProvider",
-      "model_provider",
-      "modelProvider",
-      "gen_ai.system",
-      "gen_ai.provider.name"
-    ) ?? (source === "claude-code" && model ? "anthropic" : undefined);
+  const explicit = getString(
+    body,
+    "provider",
+    "llm_provider",
+    "llmProvider",
+    "model_provider",
+    "modelProvider",
+    "gen_ai.system",
+    "gen_ai.provider.name"
+  );
 
-  return normalizeProviderName(explicit) ?? inferProviderFromModel(model);
+  return (
+    normalizeProviderName(explicit) ??
+    inferProviderFromModel(model) ??
+    (source === "claude-code" && model ? "anthropic" : undefined)
+  );
 }
 
 function normalizeProviderName(provider: string | undefined) {
