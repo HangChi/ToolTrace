@@ -61,6 +61,23 @@ When official usage is missing, it estimates exposed Codex and Claude Code hook
 prompt/output text locally with a tiktoken-compatible tokenizer and marks those
 values as `estimated`.
 
+The official usage parser recognizes the common response shapes from mainstream
+providers:
+
+- OpenAI-compatible APIs, including OpenAI, xAI, DeepSeek, Mistral, and similar
+  chat-completion responses: `input_tokens`/`output_tokens` or
+  `prompt_tokens`/`completion_tokens`, `total_tokens`, cached prompt details,
+  and reasoning token details.
+- Anthropic Claude: `input_tokens`, `output_tokens`,
+  `cache_creation_input_tokens`, and `cache_read_input_tokens`.
+- Google Gemini: `usageMetadata.promptTokenCount`,
+  `candidatesTokenCount`, `cachedContentTokenCount`, `toolUsePromptTokenCount`,
+  `thoughtsTokenCount`, and `totalTokenCount`.
+- Cohere: `usage.tokens.input_tokens` and `usage.tokens.output_tokens`, falling
+  back to `usage.billed_units` when raw token counts are not present.
+- Amazon Bedrock Converse: `inputTokens`, `outputTokens`, `totalTokens`,
+  `cacheReadInputTokens`, and `cacheWriteInputTokens`.
+
 For Codex, prefer the official OpenTelemetry log export when you need accurate
 token usage. Configure Codex with an OTLP/HTTP JSON log exporter that points at
 the local collector:
@@ -99,6 +116,8 @@ Fallback estimates only cover text that Codex and Claude Code hooks expose to
 the collector, such as `UserPromptSubmit.prompt` and
 `Stop.last_assistant_message`. They do not include hidden reasoning, unexposed
 system context, conversation history, or tool payloads that remain redacted.
+For exact preflight counts without provider usage fields, use each provider's
+official token-counting endpoint or SDK where available.
 
 ## Cost Estimates
 

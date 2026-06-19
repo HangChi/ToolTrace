@@ -140,13 +140,16 @@ export function normalizeAgentHook(
   const toolUseId = getString(body, "tool_use_id", "toolUseId");
   const claudeTranscript = source === "claude-code" ? readClaudeTranscriptInfo(body) : undefined;
   const model = getHookModel(source, body, claudeTranscript);
+  const provider = getHookProvider(source, body, model);
   const permissionMode = getString(body, "permission_mode", "permissionMode");
   const cwd = getString(body, "cwd");
   const command = getCommand(body, toolName);
   const mcpTool = parseMcpTool(toolName);
   const skillName = getSkillName(body, toolName);
   const toolKind = getToolKind(toolName);
-  const tokenUsage = extractTokenUsage(source, body) ?? estimateHookTokenUsage(source, body, hookEvent, model);
+  const tokenUsage =
+    extractTokenUsage(source, body, { model, provider }) ??
+    estimateHookTokenUsage(source, body, hookEvent, model);
   const category = getTrackingCategory({
     hookEvent,
     toolName,
@@ -172,7 +175,7 @@ export function normalizeAgentHook(
     permissionMode,
     cwd,
     redactionLevel,
-    provider: source === "claude-code" && model ? "anthropic" : undefined,
+    provider,
     model,
     category,
     command,
@@ -280,6 +283,7 @@ export function normalizeCodexOtelLogs(payload: unknown, hints: IngestHints = {}
           "gen_ai.response.model",
           "codex.model"
         );
+        const provider = getHookProvider("codex", { ...attributes, ...bodyRecord }, model) ?? "openai";
         const toolName = getFirstString(
           attributes,
           bodyRecord,
@@ -306,11 +310,15 @@ export function normalizeCodexOtelLogs(payload: unknown, hints: IngestHints = {}
           "command.name"
         );
         const toolKind = getToolKind(toolName);
-        const tokenUsage = extractTokenUsage("codex", {
-          ...attributes,
-          ...bodyRecord,
-          body
-        });
+        const tokenUsage = extractTokenUsage(
+          "codex",
+          {
+            ...attributes,
+            ...bodyRecord,
+            body
+          },
+          { model, provider }
+        );
         const status = getOtelStatus(attributes, bodyRecord);
         const category = getTrackingCategory({
           hookEvent: eventName,
@@ -326,7 +334,7 @@ export function normalizeCodexOtelLogs(payload: unknown, hints: IngestHints = {}
           agent: "codex",
           surface: surface?.value,
           surfaceSource: surface?.source,
-          provider: "openai",
+          provider,
           sessionId,
           redactionLevel,
           model,
@@ -801,11 +809,94 @@ function getClaudeTranscriptModel(record: Record<string, unknown>) {
   );
 }
 
-function extractTokenUsage(source: AgentHookSource, value: unknown): TokenUsage | undefined {
+function getHookProvider(
+  source: AgentHookSource,
+  body: Record<string, unknown>,
+  model: string | undefined
+) {
+  const explicit =
+    getString(
+      body,
+      "provider",
+      "llm_provider",
+      "llmProvider",
+      "model_provider",
+      "modelProvider",
+      "gen_ai.system",
+      "gen_ai.provider.name"
+    ) ?? (source === "claude-code" && model ? "anthropic" : undefined);
+
+  return normalizeProviderName(explicit) ?? inferProviderFromModel(model);
+}
+
+function normalizeProviderName(provider: string | undefined) {
+  const normalized = provider?.trim().toLowerCase();
+
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (["anthropic", "claude"].includes(normalized)) return "anthropic";
+  if (["google", "gemini", "google-ai", "google_ai", "vertex", "vertex-ai"].includes(normalized)) {
+    return "google";
+  }
+  if (["amazon", "aws", "bedrock", "amazon-bedrock"].includes(normalized)) return "bedrock";
+  if (["xai", "x.ai", "grok"].includes(normalized)) return "xai";
+
+  return normalized;
+}
+
+function inferProviderFromModel(model: string | undefined) {
+  const normalized = model?.trim().toLowerCase() ?? "";
+
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (/^(gpt-|o[1345](?:-|$)|chatgpt-|text-embedding-|dall-e)/.test(normalized)) {
+    return "openai";
+  }
+
+  if (normalized.includes("claude") || normalized.startsWith("anthropic.")) return "anthropic";
+  if (normalized.includes("gemini") || normalized.startsWith("gemma")) return "google";
+  if (normalized.includes("mistral") || normalized.includes("mixtral") || normalized.includes("codestral")) {
+    return "mistral";
+  }
+  if (normalized.startsWith("command-") || normalized.startsWith("embed-") || normalized.includes("cohere")) {
+    return "cohere";
+  }
+  if (normalized.includes("grok") || normalized.startsWith("xai-")) return "xai";
+  if (normalized.includes("deepseek")) return "deepseek";
+  if (normalized.includes("llama") || normalized.startsWith("meta.")) return "meta";
+  if (normalized.includes("nova") || normalized.includes("titan") || normalized.startsWith("amazon.")) {
+    return "bedrock";
+  }
+  if (normalized.includes("sonar") || normalized.includes("perplexity")) return "perplexity";
+  if (normalized.includes("qwen") || normalized.includes("dashscope")) return "alibaba";
+  if (normalized.includes("glm") || normalized.includes("zhipu")) return "zhipu";
+  if (normalized.includes("kimi") || normalized.includes("moonshot")) return "moonshot";
+
+  return undefined;
+}
+
+type UsageParseContext = {
+  model?: string;
+  provider?: string;
+};
+
+function extractTokenUsage(
+  source: AgentHookSource,
+  value: unknown,
+  context: UsageParseContext = {}
+): TokenUsage | undefined {
   const candidates = getUsageCandidates(value);
 
   for (const candidate of candidates) {
-    const usage = source === "claude-code" ? parseClaudeUsage(candidate) : parseCodexUsage(candidate);
+    const provider =
+      getUsageProvider(candidate) ??
+      context.provider ??
+      inferProviderFromModel(getString(candidate, "model", "model_id", "modelId") ?? context.model);
+    const usage = parseUsageCandidate(candidate, source, provider);
 
     if (usage !== undefined) {
       return usage;
@@ -850,6 +941,86 @@ function estimateHookTokenUsage(
   return undefined;
 }
 
+function getUsageProvider(usage: Record<string, unknown>) {
+  return normalizeProviderName(
+    getString(
+      usage,
+      "provider",
+      "llm_provider",
+      "llmProvider",
+      "model_provider",
+      "modelProvider",
+      "gen_ai.system",
+      "gen_ai.provider.name"
+    )
+  );
+}
+
+function parseUsageCandidate(
+  usage: Record<string, unknown>,
+  source: AgentHookSource,
+  provider: string | undefined
+) {
+  const shouldTryAnthropic =
+    !hasNestedBedrockUsageFields(usage) &&
+    (source === "claude-code" || provider === "anthropic" || hasAnthropicUsageFields(usage));
+  const shouldTryBedrock = hasBedrockUsageFields(usage);
+
+  return (
+    parseGeminiUsage(usage, getUsageSource(source, provider ?? "google")) ??
+    parseCohereUsage(usage, getUsageSource(source, provider ?? "cohere")) ??
+    (shouldTryBedrock
+      ? parseBedrockUsage(usage, getUsageSource(source, provider ?? "bedrock"))
+      : undefined) ??
+    (shouldTryAnthropic
+      ? parseAnthropicUsage(usage, getUsageSource(source, provider))
+      : undefined) ??
+    parseOpenAICompatibleUsage(usage, getUsageSource(source, provider ?? "openai")) ??
+    (!hasNestedBedrockUsageFields(usage) && hasAnthropicUsageFields(usage)
+      ? parseAnthropicUsage(usage, getUsageSource(source, provider ?? "anthropic"))
+      : undefined)
+  );
+}
+
+function getUsageSource(source: AgentHookSource, provider: string | undefined) {
+  const providerName = provider ?? source;
+
+  if (source === "codex" && providerName === "openai") {
+    return "codex";
+  }
+
+  if (source === "claude-code" && providerName === "anthropic") {
+    return "claude-code";
+  }
+
+  return providerName;
+}
+
+function hasAnthropicUsageFields(usage: Record<string, unknown>) {
+  const nestedUsage = asRecord(getValue(usage, "usage"));
+  const anthropicUsage = Object.keys(nestedUsage).length > 0 ? nestedUsage : usage;
+
+  return (
+    getNumber(anthropicUsage, "cache_creation_input_tokens", "cacheCreationInputTokens") !== undefined ||
+    getNumber(anthropicUsage, "cache_read_input_tokens", "cacheReadInputTokens") !== undefined
+  );
+}
+
+function hasBedrockUsageFields(usage: Record<string, unknown>) {
+  return (
+    getNumber(usage, "inputTokens") !== undefined ||
+    getNumber(usage, "outputTokens") !== undefined ||
+    getNumber(usage, "cacheReadInputTokens") !== undefined ||
+    getNumber(usage, "cacheWriteInputTokens") !== undefined
+  );
+}
+
+function hasNestedBedrockUsageFields(usage: Record<string, unknown>) {
+  const nestedUsage = asRecord(getValue(usage, "usage"));
+
+  return Object.keys(nestedUsage).length > 0 && hasBedrockUsageFields(nestedUsage);
+}
+
 function getUsageCandidates(value: unknown): Record<string, unknown>[] {
   const candidates: Record<string, unknown>[] = [];
 
@@ -881,6 +1052,9 @@ function collectUsageCandidates(
     "usageMetadata",
     "token_usage",
     "tokenUsage",
+    "tokens",
+    "billed_units",
+    "billedUnits",
     "response_usage",
     "responseUsage",
     "response",
@@ -890,13 +1064,17 @@ function collectUsageCandidates(
     "tool_response",
     "toolResponse",
     "body",
-    "metadata"
+    "metadata",
+    "metrics"
   ]) {
     collectUsageCandidates(record[key], candidates, depth + 1);
   }
 }
 
-function parseCodexUsage(usage: Record<string, unknown>): TokenUsage | undefined {
+function parseOpenAICompatibleUsage(
+  usage: Record<string, unknown>,
+  source: string
+): TokenUsage | undefined {
   const input =
     getNumber(
       usage,
@@ -932,6 +1110,8 @@ function parseCodexUsage(usage: Record<string, unknown>): TokenUsage | undefined
       "cachedInput",
       "cache_read_input_tokens",
       "cacheReadInputTokens",
+      "prompt_cache_hit_tokens",
+      "promptCacheHitTokens",
       "gen_ai.usage.cached_input_tokens"
     ) ??
     getNumber(usage, "input_tokens_details.cached_tokens", "prompt_tokens_details.cached_tokens") ??
@@ -978,11 +1158,14 @@ function parseCodexUsage(usage: Record<string, unknown>): TokenUsage | undefined
     total,
     cachedInput,
     reasoningOutput,
-    source: "codex"
+    source
   });
 }
 
-function parseClaudeUsage(usage: Record<string, unknown>): TokenUsage | undefined {
+function parseAnthropicUsage(
+  usage: Record<string, unknown>,
+  source: string
+): TokenUsage | undefined {
   const nestedUsage = asRecord(getValue(usage, "usage"));
   const anthropicUsage = Object.keys(nestedUsage).length > 0 ? nestedUsage : usage;
   const input =
@@ -1007,6 +1190,7 @@ function parseClaudeUsage(usage: Record<string, unknown>): TokenUsage | undefine
     getNumber(anthropicUsage, "cache_read_input_tokens", "cacheReadInputTokens") ??
     getNumber(usage, "cache_read_input_tokens", "cacheReadInputTokens");
   const total =
+    getNumber(anthropicUsage, "totalTokens", "total_tokens", "total") ??
     getNumber(usage, "totalTokens", "total_tokens", "total") ??
     input + output + (cacheCreationInput ?? 0) + (cacheReadInput ?? 0);
 
@@ -1021,7 +1205,90 @@ function parseClaudeUsage(usage: Record<string, unknown>): TokenUsage | undefine
     cacheCreationInput,
     cacheReadInput,
     cachedInput: cacheReadInput,
-    source: "claude-code"
+    source
+  });
+}
+
+function parseGeminiUsage(usage: Record<string, unknown>, source: string): TokenUsage | undefined {
+  const promptInput = getNumber(usage, "promptTokenCount", "prompt_token_count") ?? 0;
+  const toolUseInput = getNumber(usage, "toolUsePromptTokenCount", "tool_use_prompt_token_count") ?? 0;
+  const input = promptInput + toolUseInput;
+  const output = getNumber(usage, "candidatesTokenCount", "candidates_token_count") ?? 0;
+  const reasoningOutput = getNumber(usage, "thoughtsTokenCount", "thoughts_token_count");
+  const cachedInput = getNumber(usage, "cachedContentTokenCount", "cached_content_token_count");
+  const total =
+    getNumber(usage, "totalTokenCount", "total_token_count") ??
+    input + output + (reasoningOutput ?? 0);
+
+  if (input === 0 && output === 0 && total === 0) {
+    return undefined;
+  }
+
+  return compactTokenUsage({
+    input,
+    output,
+    total,
+    cachedInput,
+    reasoningOutput,
+    source
+  });
+}
+
+function parseCohereUsage(usage: Record<string, unknown>, source: string): TokenUsage | undefined {
+  const tokens = asRecord(getValue(usage, "tokens"));
+  const billedUnits = asRecord(getValue(usage, "billed_units", "billedUnits"));
+  const tokenUsage = Object.keys(tokens).length > 0 ? tokens : billedUnits;
+  const input =
+    getNumber(tokenUsage, "input_tokens", "inputTokens", "input") ?? 0;
+  const output =
+    getNumber(tokenUsage, "output_tokens", "outputTokens", "output") ?? 0;
+  const total = getNumber(tokenUsage, "total_tokens", "totalTokens", "total") ?? input + output;
+
+  if (Object.keys(tokens).length === 0 && Object.keys(billedUnits).length === 0) {
+    return undefined;
+  }
+
+  return compactTokenUsage({
+    input,
+    output,
+    total,
+    source
+  });
+}
+
+function parseBedrockUsage(usage: Record<string, unknown>, source: string): TokenUsage | undefined {
+  const input = getNumber(usage, "inputTokens");
+  const output = getNumber(usage, "outputTokens");
+  const cacheCreationInput = getNumber(usage, "cacheWriteInputTokens");
+  const cacheReadInput = getNumber(usage, "cacheReadInputTokens");
+
+  if (
+    input === undefined &&
+    output === undefined &&
+    cacheCreationInput === undefined &&
+    cacheReadInput === undefined
+  ) {
+    return undefined;
+  }
+
+  const normalizedInput = input ?? 0;
+  const normalizedOutput = output ?? 0;
+  const total =
+    getNumber(usage, "totalTokens") ??
+    normalizedInput + normalizedOutput + (cacheCreationInput ?? 0) + (cacheReadInput ?? 0);
+
+  if (normalizedInput === 0 && normalizedOutput === 0 && total === 0) {
+    return undefined;
+  }
+
+  return compactTokenUsage({
+    input: normalizedInput,
+    output: normalizedOutput,
+    total,
+    cacheCreationInput,
+    cacheReadInput,
+    cachedInput: cacheReadInput,
+    source
   });
 }
 

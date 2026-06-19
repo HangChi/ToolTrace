@@ -962,6 +962,166 @@ if (
   throw new Error("Expected generic OTel /v1/logs ingestion to default to desktop surface.");
 }
 
+const mainstreamUsageFixtures = [
+  {
+    id: "gemini_usage_smoke",
+    model: "gemini-2.5-pro",
+    provider: "google",
+    payload: {
+      usageMetadata: {
+        promptTokenCount: 100,
+        cachedContentTokenCount: 30,
+        candidatesTokenCount: 20,
+        toolUsePromptTokenCount: 5,
+        thoughtsTokenCount: 7,
+        totalTokenCount: 132
+      }
+    },
+    expected: {
+      input: 105,
+      output: 20,
+      total: 132,
+      cachedInput: 30,
+      reasoningOutput: 7
+    }
+  },
+  {
+    id: "cohere_usage_smoke",
+    model: "command-a-plus-05-2026",
+    provider: "cohere",
+    payload: {
+      usage: {
+        billed_units: {
+          input_tokens: 5,
+          output_tokens: 418
+        },
+        tokens: {
+          input_tokens: 71,
+          output_tokens: 418
+        }
+      }
+    },
+    expected: {
+      input: 71,
+      output: 418,
+      total: 489
+    }
+  },
+  {
+    id: "bedrock_usage_smoke",
+    model: "anthropic.claude-sonnet-4-5-20250929-v1:0",
+    provider: "anthropic",
+    payload: {
+      usage: {
+        inputTokens: 10,
+        outputTokens: 2,
+        totalTokens: 12,
+        cacheReadInputTokens: 3,
+        cacheWriteInputTokens: 4
+      }
+    },
+    expected: {
+      input: 10,
+      output: 2,
+      total: 12,
+      cachedInput: 3,
+      cacheCreationInput: 4,
+      cacheReadInput: 3
+    }
+  },
+  {
+    id: "deepseek_usage_smoke",
+    model: "deepseek-v4-pro",
+    provider: "deepseek",
+    payload: {
+      usage: {
+        prompt_tokens: 50,
+        completion_tokens: 15,
+        total_tokens: 80,
+        prompt_cache_hit_tokens: 10,
+        completion_tokens_details: {
+          reasoning_tokens: 15
+        }
+      }
+    },
+    expected: {
+      input: 50,
+      output: 15,
+      total: 80,
+      cachedInput: 10,
+      reasoningOutput: 15
+    }
+  },
+  {
+    id: "xai_usage_smoke",
+    model: "grok-4",
+    provider: "xai",
+    payload: {
+      usage: {
+        prompt_tokens: 32,
+        completion_tokens: 9,
+        total_tokens: 151,
+        prompt_tokens_details: {
+          cached_tokens: 8
+        },
+        completion_tokens_details: {
+          reasoning_tokens: 110
+        }
+      }
+    },
+    expected: {
+      input: 32,
+      output: 9,
+      total: 151,
+      cachedInput: 8,
+      reasoningOutput: 110
+    }
+  }
+];
+
+for (const item of mainstreamUsageFixtures) {
+  await expectAccepted(
+    app.request(codexCliHookPath, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        session_id: item.id,
+        hook_event_name: "Stop",
+        cwd: "/workspace/tooltrace",
+        model: item.model,
+        ...item.payload
+      })
+    }),
+    `${item.model} official usage hook`
+  );
+}
+
+const mainstreamRunsResponse = await app.request("/runs?includeUntracked=1");
+const mainstreamRuns = await mainstreamRunsResponse.json();
+
+for (const item of mainstreamUsageFixtures) {
+  const runIdForFixture = `run_codex_${item.id}`;
+  const run = Array.isArray(mainstreamRuns)
+    ? mainstreamRuns.find((candidate) => candidate.id === runIdForFixture)
+    : undefined;
+  const summary = run?.metadata?.summary;
+  const modelUsage = summary?.modelUsage?.[0];
+
+  if (
+    !summary?.models?.includes(item.model) ||
+    modelUsage?.model !== item.model ||
+    modelUsage.provider !== item.provider
+  ) {
+    throw new Error(`Expected ${item.model} usage to be attributed to its provider and model.`);
+  }
+
+  for (const [key, value] of Object.entries(item.expected)) {
+    if (modelUsage.tokenUsage[key] !== value) {
+      throw new Error(`Expected ${item.model} ${key} to equal ${value}.`);
+    }
+  }
+}
+
 const claudeSessionId = "claude_session_smoke";
 const claudeRunId = "run_claude-code_claude_session_smoke";
 const claudeSecretPrompt = "summarize the private vendor token";
