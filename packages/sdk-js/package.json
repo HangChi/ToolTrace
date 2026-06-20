@@ -1,5 +1,5 @@
 {
-  "name": "@tooltrace/sdk",
+  "name": "@agent-trace/sdk",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,7 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@tooltrace/schema": "workspace:*"
+    "@agent-trace/schema": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.21.0"

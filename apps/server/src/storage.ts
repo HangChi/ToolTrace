@@ -1,7 +1,7 @@
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 
-import type { CreateRun, CreateTraceEvent, Run, UpdateRun } from "@tooltrace/schema";
+import type { CreateRun, CreateTraceEvent, Run, UpdateRun } from "@agent-trace/schema";
 
 import { createSqliteDatabase, db as defaultDb } from "./db.js";
 import { events, runs } from "./schema.js";
@@ -630,7 +630,10 @@ function toPublicSummary(summary: EventSummary) {
 
 function getStaleRunMs() {
   const raw =
-    process.env.TOOLTRACE_RUNNING_STALE_MINUTES ?? process.env.TOOLTRACE_STALE_RUN_MINUTES;
+    process.env.AGENT_TRACE_RUNNING_STALE_MINUTES ??
+    process.env.AGENT_TRACE_STALE_RUN_MINUTES ??
+    process.env.TOOLTRACE_RUNNING_STALE_MINUTES ??
+    process.env.TOOLTRACE_STALE_RUN_MINUTES;
   const minutes = raw ? Number(raw) : defaultStaleRunMinutes;
 
   return Number.isFinite(minutes) && minutes > 0

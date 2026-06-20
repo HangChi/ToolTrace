@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
-const endpoint = trimTrailingSlash(process.env.TOOLTRACE_ENDPOINT ?? "http://localhost:4319");
+const endpoint = trimTrailingSlash(
+  process.env.AGENT_TRACE_ENDPOINT ?? process.env.TOOLTRACE_ENDPOINT ?? "http://localhost:4319"
+);
 const suffix = Date.now().toString(36);
 const codexSessionId = `codex_e2e_${suffix}`;
 const claudeSessionId = `claude_e2e_${suffix}`;
@@ -115,7 +117,7 @@ assert(
 assert(!combined.includes(secretPrompt), "Raw prompt was unexpectedly persisted.");
 assert(combined.includes(secretCommand), "Executed command text was not persisted.");
 
-console.log("ToolTrace agent hook smoke passed.");
+console.log("Agent-Trace agent hook smoke passed.");
 console.log(`Codex run: ${endpoint}/runs/${codexRunId}/events`);
 console.log(`Claude Code run: ${endpoint}/runs/${claudeRunId}/events`);
 

@@ -1,4 +1,4 @@
-import { createRunSchema, createTraceEventSchema, updateRunSchema } from "@tooltrace/schema";
+import { createRunSchema, createTraceEventSchema, updateRunSchema } from "@agent-trace/schema";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 

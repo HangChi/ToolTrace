@@ -4,7 +4,7 @@ import { ThemeProvider } from "next-themes";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ToolTrace",
+  title: "Agent-Trace",
   description: "Local-first trace console for AI agents"
 };
 

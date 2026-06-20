@@ -75,9 +75,10 @@ export function uninstallHooks(target: HookTarget): UninstallResult {
   return { target, path, backupPath, removed, changed: true };
 }
 
-// Marks the matcher groups that ToolTrace owns so that repeated installs and
+// Marks the matcher groups that Agent-Trace owns so that repeated installs and
 // uninstalls only ever touch our own entries, never the user's custom hooks.
-const MANAGED_MARKER = "tooltraceManaged";
+const MANAGED_MARKER = "agentTraceManaged";
+const LEGACY_MANAGED_MARKER = "tooltraceManaged";
 
 const DEFAULT_COLLECTOR_URL = "http://localhost:4319";
 
@@ -143,7 +144,10 @@ export function resolveSettingsPath(target: HookTarget): string {
 
 export function installHooks(target: HookTarget, options: InstallOptions = {}): InstallResult {
   const collectorUrl = normalizeCollectorUrl(
-    options.collectorUrl ?? process.env.TOOLTRACE_COLLECTOR_URL ?? DEFAULT_COLLECTOR_URL
+    options.collectorUrl ??
+      process.env.AGENT_TRACE_COLLECTOR_URL ??
+      process.env.TOOLTRACE_COLLECTOR_URL ??
+      DEFAULT_COLLECTOR_URL
   );
   const redaction = options.redaction ?? "metadata";
   const surface = target === "codex" ? normalizeCodexSurface(options.surface) : undefined;
@@ -187,7 +191,7 @@ function installCodexOtelConfig(collectorUrl: string, surface: CodexSurface) {
   const current = existsSync(path) ? readFileSync(path, "utf8") : "";
   const endpoint = appendQuery(`${collectorUrl}/integrations/codex/otel/v1/logs`, {
     surface,
-    surface_source: `tooltrace-${surface}`
+    surface_source: `agent-trace-${surface}`
   });
   const next = upsertCodexOtelBlock(current, endpoint);
 
@@ -301,11 +305,11 @@ function buildHandler(
     target === "codex"
       ? {
           surface: surface ?? "cli",
-          surface_source: `tooltrace-${surface ?? "cli"}`
+          surface_source: `agent-trace-${surface ?? "cli"}`
         }
       : {
           surface: "cli",
-          surface_source: `tooltrace-${target}`
+          surface_source: `agent-trace-${target}`
         };
   const url = appendQuery(`${collectorUrl}${integrationPath}`, {
     redaction,
@@ -382,7 +386,7 @@ function dropEmptyEventArrays(hooks: Record<string, unknown>) {
 }
 
 function isManagedEntry(entry: unknown): boolean {
-  return isObject(entry) && entry[MANAGED_MARKER] === true;
+  return isObject(entry) && (entry[MANAGED_MARKER] === true || entry[LEGACY_MANAGED_MARKER] === true);
 }
 
 function backupIfExists(path: string): string | undefined {
@@ -391,7 +395,7 @@ function backupIfExists(path: string): string | undefined {
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const backupPath = `${path}.tooltrace-backup.${stamp}`;
+  const backupPath = `${path}.agent-trace-backup.${stamp}`;
   copyFileSync(path, backupPath);
 
   return backupPath;

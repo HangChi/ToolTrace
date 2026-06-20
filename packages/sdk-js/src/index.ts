@@ -1,4 +1,4 @@
-import type { TraceEventType, TraceMetadata } from "@tooltrace/schema";
+import type { TraceEventType, TraceMetadata } from "@agent-trace/schema";
 
 export type StartRunOptions = {
   name: string;

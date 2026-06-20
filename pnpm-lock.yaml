@@ -17,7 +17,7 @@ importers:
       '@hono/node-server':
         specifier: ^1.19.7
         version: 1.19.14(hono@4.12.25)
-      '@tooltrace/schema':
+      '@agent-trace/schema':
         specifier: workspace:*
         version: link:../../packages/schema
       better-sqlite3:
@@ -100,7 +100,7 @@ importers:
 
   examples/simple-agent:
     dependencies:
-      '@tooltrace/sdk':
+      '@agent-trace/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk-js
     devDependencies:
@@ -128,7 +128,7 @@ importers:
 
   packages/sdk-js:
     dependencies:
-      '@tooltrace/schema':
+      '@agent-trace/schema':
         specifier: workspace:*
         version: link:../schema
     devDependencies:

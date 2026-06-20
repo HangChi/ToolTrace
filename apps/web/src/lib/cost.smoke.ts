@@ -116,7 +116,7 @@ if (!unknownCost.unpricedModels.includes("unknown-model")) {
   throw new Error("Expected unknown model name to be reported as unpriced.");
 }
 
-console.log("ToolTrace cost smoke test passed.");
+console.log("Agent-Trace cost smoke test passed.");
 
 function expectClose(actual: number | undefined, expected: number, label: string) {
   if (actual === undefined || Math.abs(actual - expected) > 0.0000001) {

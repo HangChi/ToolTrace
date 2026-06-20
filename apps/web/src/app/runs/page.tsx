@@ -91,7 +91,7 @@ type TokenUsage = {
 
 type RunsSearchParams = Promise<{ lang?: string | string[] }>;
 
-const collectorUrl = process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
+const collectorUrl = process.env.AGENT_TRACE_API_URL ?? process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
 const runsBulkDeleteFormId = "runs-bulk-delete-form";
 
 export default async function RunsPage({ searchParams }: { searchParams: RunsSearchParams }) {
@@ -115,7 +115,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                   <Activity className="h-5 w-5" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-primary">ToolTrace</p>
+                  <p className="text-xs font-semibold text-primary">Agent-Trace</p>
                   <h1 className="text-xl font-semibold leading-tight text-foreground">
                     {text.runs.title}
                   </h1>

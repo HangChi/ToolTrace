@@ -1,5 +1,5 @@
 {
-  "name": "@tooltrace/web",
+  "name": "@agent-trace/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",

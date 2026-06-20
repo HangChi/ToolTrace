@@ -74,7 +74,7 @@ if (!failedEvent) {
   throw new Error("Expected SDK to emit an error event for failed traceLLM.");
 }
 
-console.log("ToolTrace SDK smoke test passed.");
+console.log("Agent-Trace SDK smoke test passed.");
 
 function assertCall(method: string, url: string) {
   const matched = calls.some((call) => call.method === method && call.url === url);

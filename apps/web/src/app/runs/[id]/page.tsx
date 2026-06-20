@@ -140,7 +140,7 @@ type EventPageResult = {
   visibility: EventVisibility;
 };
 
-const collectorUrl = process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
+const collectorUrl = process.env.AGENT_TRACE_API_URL ?? process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
 
 export default async function RunDetailPage({
   params,

@@ -1,5 +1,5 @@
 {
-  "name": "tooltrace",
+  "name": "agent-trace",
   "version": "0.0.0",
   "private": true,
   "type": "module",

@@ -85,7 +85,7 @@ const baseModelPricing: Record<string, ModelPricing> = {
 };
 
 export async function getUsdCnyRate(): Promise<ExchangeRate | undefined> {
-  const envRate = Number(process.env.TOOLTRACE_USD_CNY_RATE);
+  const envRate = Number(process.env.AGENT_TRACE_USD_CNY_RATE ?? process.env.TOOLTRACE_USD_CNY_RATE);
 
   if (Number.isFinite(envRate) && envRate > 0) {
     return {
@@ -95,9 +95,14 @@ export async function getUsdCnyRate(): Promise<ExchangeRate | undefined> {
   }
 
   try {
-    const response = await fetch(process.env.TOOLTRACE_EXCHANGE_RATE_URL ?? defaultExchangeRateUrl, {
-      next: { revalidate: 3600 }
-    });
+    const response = await fetch(
+      process.env.AGENT_TRACE_EXCHANGE_RATE_URL ??
+        process.env.TOOLTRACE_EXCHANGE_RATE_URL ??
+        defaultExchangeRateUrl,
+      {
+        next: { revalidate: 3600 }
+      }
+    );
 
     if (!response.ok) {
       return undefined;
@@ -239,7 +244,9 @@ function getConfiguredPricing() {
 
   configuredPricing = {
     ...baseModelPricing,
-    ...parsePricingOverrides(process.env.TOOLTRACE_MODEL_PRICES_JSON)
+    ...parsePricingOverrides(
+      process.env.AGENT_TRACE_MODEL_PRICES_JSON ?? process.env.TOOLTRACE_MODEL_PRICES_JSON
+    )
   };
 
   return configuredPricing;

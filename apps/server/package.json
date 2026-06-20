@@ -1,5 +1,5 @@
 {
-  "name": "@tooltrace/server",
+  "name": "@agent-trace/server",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.7",
-    "@tooltrace/schema": "workspace:*",
+    "@agent-trace/schema": "workspace:*",
     "better-sqlite3": "^12.5.0",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.11.1",

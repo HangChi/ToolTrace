@@ -12,4 +12,4 @@ serve({
   port
 });
 
-console.log(`ToolTrace server running at http://localhost:${port}`);
+console.log(`Agent-Trace server running at http://localhost:${port}`);

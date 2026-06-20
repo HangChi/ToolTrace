@@ -2,8 +2,8 @@ import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const databasePath = join(tmpdir(), `tooltrace-api-smoke-${Date.now()}.db`);
-process.env.TOOLTRACE_DB_PATH = databasePath;
+const databasePath = join(tmpdir(), `agent-trace-api-smoke-${Date.now()}.db`);
+process.env.AGENT_TRACE_DB_PATH = databasePath;
 
 const { createApp } = await import("./app.js");
 const { initializeDatabase } = await import("./storage.js");
@@ -519,7 +519,7 @@ if (
 
 const codexSessionId = "codex_session_smoke";
 const codexRunId = "run_codex_codex_session_smoke";
-const codexCliHookPath = "/integrations/codex/hook?surface=cli&surface_source=tooltrace-cli";
+const codexCliHookPath = "/integrations/codex/hook?surface=cli&surface_source=agent-trace-cli";
 const codexSecretPrompt = "please inspect the private billing token";
 const codexSecretCommand = "cat .env";
 
@@ -530,7 +530,7 @@ await expectAccepted(
     body: JSON.stringify({
       session_id: codexSessionId,
       hook_event_name: "SessionStart",
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "gpt-5.4",
       source: "startup",
       permission_mode: "default"
@@ -548,7 +548,7 @@ await expectAccepted(
       hook_event_name: "UserPromptSubmit",
       turn_id: "codex_turn_1",
       prompt: codexSecretPrompt,
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "gpt-5.4",
       permission_mode: "default"
     })
@@ -572,7 +572,7 @@ await expectAccepted(
       tool_response: {
         stdout: "TOKEN=secret"
       },
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "gpt-5.4",
       permission_mode: "default"
     })
@@ -591,12 +591,12 @@ await expectAccepted(
       tool_name: "Read",
       tool_use_id: "codex_tool_2",
       tool_input: {
-        path: "/workspace/tooltrace/README.md"
+        path: "/workspace/agent-trace/README.md"
       },
       tool_response: {
         bytes: 128
       },
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "gpt-5.4",
       permission_mode: "default"
     })
@@ -620,7 +620,7 @@ await expectAccepted(
       tool_response: {
         result: 2
       },
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "gpt-5.4",
       permission_mode: "default"
     })
@@ -644,7 +644,7 @@ await expectAccepted(
       tool_response: {
         ok: true
       },
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "gpt-5.4",
       permission_mode: "default"
     })
@@ -661,7 +661,7 @@ await expectAccepted(
       hook_event_name: "Stop",
       turn_id: "codex_turn_1",
       last_assistant_message: "Done.",
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "gpt-5.4",
       permission_mode: "default"
     })
@@ -679,8 +679,8 @@ if (codexRun?.metadata?.agent !== "codex") {
   throw new Error("Expected Codex hook ingestion to create a metadata-backed run.");
 }
 
-if (codexRun.metadata.surface !== "cli" || codexRun.metadata.surfaceSource !== "tooltrace-cli") {
-  throw new Error("Expected Codex hook ingestion to preserve the ToolTrace CLI surface hint.");
+if (codexRun.metadata.surface !== "cli" || codexRun.metadata.surfaceSource !== "agent-trace-cli") {
+  throw new Error("Expected Codex hook ingestion to preserve the Agent-Trace CLI surface hint.");
 }
 
 if (codexRun?.status !== "success") {
@@ -780,7 +780,7 @@ await expectAccepted(
     body: JSON.stringify({
       session_id: codexPromptOnlySessionId,
       hook_event_name: "SessionStart",
-      cwd: "/workspace/tooltrace"
+      cwd: "/workspace/agent-trace"
     })
   }),
   "codex prompt-only SessionStart hook"
@@ -795,7 +795,7 @@ await expectAccepted(
       hook_event_name: "UserPromptSubmit",
       turn_id: "codex_prompt_only_turn_1",
       prompt: "hello",
-      cwd: "/workspace/tooltrace"
+      cwd: "/workspace/agent-trace"
     })
   }),
   "codex prompt-only UserPromptSubmit hook"
@@ -810,7 +810,7 @@ await expectAccepted(
       hook_event_name: "Stop",
       turn_id: "codex_prompt_only_turn_1",
       last_assistant_message: "hi",
-      cwd: "/workspace/tooltrace"
+      cwd: "/workspace/agent-trace"
     })
   }),
   "codex prompt-only Stop hook"
@@ -843,7 +843,7 @@ await expectAccepted(
       hook_event_name: "UserPromptExpansion",
       turn_id: "codex_expansion_turn_1",
       prompt: "expand without skill",
-      cwd: "/workspace/tooltrace"
+      cwd: "/workspace/agent-trace"
     })
   }),
   "codex unnamed UserPromptExpansion hook"
@@ -860,7 +860,7 @@ await expectAccepted(
       tool_input: {
         name: "baoyu-translate"
       },
-      cwd: "/workspace/tooltrace"
+      cwd: "/workspace/agent-trace"
     })
   }),
   "codex named UserPromptExpansion hook"
@@ -900,7 +900,7 @@ const codexOtelSessionId = "codex_otel_session_smoke";
 const codexOtelRunId = "run_codex_codex_otel_session_smoke";
 
 await expectAccepted(
-  app.request("/integrations/codex/otel/v1/logs?surface=cli&surface_source=tooltrace-cli", {
+  app.request("/integrations/codex/otel/v1/logs?surface=cli&surface_source=agent-trace-cli", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -993,10 +993,10 @@ if (
 if (
   !Array.isArray(codexOtelEvents) ||
   !codexOtelEvents.every(
-    (event) => event.metadata?.surface === "cli" && event.metadata.surfaceSource === "tooltrace-cli"
+    (event) => event.metadata?.surface === "cli" && event.metadata.surfaceSource === "agent-trace-cli"
   )
 ) {
-  throw new Error("Expected Codex OTel logs to preserve the ToolTrace CLI surface hint.");
+  throw new Error("Expected Codex OTel logs to preserve the Agent-Trace CLI surface hint.");
 }
 
 if (
@@ -1046,7 +1046,7 @@ const listedCodexOtelRun = Array.isArray(allCodexOtelRuns)
 
 if (
   listedCodexOtelRun?.metadata?.surface !== "cli" ||
-  listedCodexOtelRun.metadata.surfaceSource !== "tooltrace-cli"
+  listedCodexOtelRun.metadata.surfaceSource !== "agent-trace-cli"
 ) {
   throw new Error("Expected untracked Codex OTel runs to keep CLI surface hints.");
 }
@@ -1225,7 +1225,7 @@ for (const item of mainstreamUsageFixtures) {
       body: JSON.stringify({
         session_id: item.id,
         hook_event_name: "Stop",
-        cwd: "/workspace/tooltrace",
+        cwd: "/workspace/agent-trace",
         model: item.model,
         ...item.payload
       })
@@ -1274,7 +1274,7 @@ const claudeTranscriptUsage = {
   cache_read_input_tokens: 789
 };
 const claudeTranscriptUsageTotal = 7120;
-const claudeTranscriptPath = join(tmpdir(), `tooltrace-claude-transcript-${Date.now()}.jsonl`);
+const claudeTranscriptPath = join(tmpdir(), `agent-trace-claude-transcript-${Date.now()}.jsonl`);
 
 writeFileSync(
   claudeTranscriptPath,
@@ -1306,7 +1306,7 @@ await expectAccepted(
     body: JSON.stringify({
       session_id: claudeSessionId,
       hook_event_name: "SessionStart",
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "claude-sonnet-4-6",
       source: "startup",
       permission_mode: "acceptEdits"
@@ -1324,7 +1324,7 @@ await expectAccepted(
       hook_event_name: "UserPromptSubmit",
       turn_id: "claude_turn_1",
       prompt: claudeSecretPrompt,
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "claude-sonnet-4-6",
       permission_mode: "acceptEdits"
     })
@@ -1344,7 +1344,7 @@ await expectAccepted(
       tool_input: {
         command: claudeSecretCommand
       },
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "claude-sonnet-4-6",
       permission_mode: "acceptEdits"
     })
@@ -1367,7 +1367,7 @@ await expectAccepted(
       tool_response: {
         stderr: "permission denied"
       },
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "claude-sonnet-4-6",
       permission_mode: "acceptEdits"
     })
@@ -1399,7 +1399,7 @@ await expectAccepted(
           cache_read_input_tokens: 2230
         }
       },
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       permission_mode: "acceptEdits"
     })
   }),
@@ -1414,7 +1414,7 @@ await expectAccepted(
       session_id: claudeSessionId,
       hook_event_name: "Stop",
       last_assistant_message: "I could not read the key.",
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       model: "claude-sonnet-4-6",
       permission_mode: "acceptEdits"
     })
@@ -1512,7 +1512,7 @@ await expectAccepted(
     body: JSON.stringify({
       session_id: claudeTranscriptSessionId,
       hook_event_name: "SessionStart",
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       permission_mode: "acceptEdits"
     })
   }),
@@ -1527,7 +1527,7 @@ await expectAccepted(
       session_id: claudeTranscriptSessionId,
       hook_event_name: "UserPromptSubmit",
       prompt: "hello from a prompt before Claude Code reports its model",
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       permission_mode: "acceptEdits"
     })
   }),
@@ -1543,7 +1543,7 @@ await expectAccepted(
       hook_event_name: "Stop",
       transcript_path: claudeTranscriptPath,
       last_assistant_message: "Transcript-backed response.",
-      cwd: "/workspace/tooltrace",
+      cwd: "/workspace/agent-trace",
       permission_mode: "acceptEdits"
     })
   }),
@@ -1590,7 +1590,7 @@ if (
   throw new Error("Expected Claude Code transcript model usage to include transcript tokens.");
 }
 
-console.log("ToolTrace API smoke test passed.");
+console.log("Agent-Trace API smoke test passed.");
 
 async function expectAccepted(responseResult: Response | Promise<Response>, label: string) {
   const response = await responseResult;

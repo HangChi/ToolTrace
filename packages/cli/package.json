@@ -1,9 +1,9 @@
 {
-  "name": "@tooltrace/cli",
+  "name": "@agent-trace/cli",
   "version": "0.0.0",
   "type": "module",
   "bin": {
-    "tooltrace": "./dist/index.js"
+    "agent-trace": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

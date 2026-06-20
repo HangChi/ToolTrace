@@ -1,6 +1,6 @@
 import { getEncoding, type Tiktoken, type TiktokenEncoding } from "js-tiktoken";
 
-import type { TokenUsage } from "@tooltrace/schema";
+import type { TokenUsage } from "@agent-trace/schema";
 
 type TokenDirection = "input" | "output";
 

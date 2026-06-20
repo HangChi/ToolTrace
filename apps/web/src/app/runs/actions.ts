@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-const collectorUrl = process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
+const collectorUrl = process.env.AGENT_TRACE_API_URL ?? process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
 
 export async function deleteRunAction(id: string): Promise<{ ok: boolean; error?: string }> {
   try {

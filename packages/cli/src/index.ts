@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { spawn, type ChildProcess } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   installHooks,
@@ -12,6 +14,7 @@ import {
 } from "./hooks.js";
 
 const command = process.argv[2];
+const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 if (!command || command === "--help" || command === "-h") {
   printHelp();
@@ -57,7 +60,7 @@ function runInstall(argv: string[]) {
 
   const result = installHooks(target, { scope, redaction, collectorUrl, surface });
 
-  console.log(`Installed ToolTrace tracing hooks for ${result.target} (${scope} scope).`);
+  console.log(`Installed Agent-Trace tracing hooks for ${result.target} (${scope} scope).`);
   console.log(`Config: ${result.path}`);
   console.log(`Collector: ${result.collectorUrl}`);
   console.log(`Redaction: ${result.redaction}`);
@@ -95,12 +98,12 @@ function runUninstall(argv: string[]) {
   const result = uninstallHooks(target);
 
   if (!result.changed) {
-    console.log(`No ToolTrace tracing hooks found for ${target}.`);
+    console.log(`No Agent-Trace tracing hooks found for ${target}.`);
     console.log(`Config: ${result.path}`);
     return;
   }
 
-  console.log(`Removed ${result.removed} ToolTrace tracing hook entries for ${target}.`);
+  console.log(`Removed ${result.removed} Agent-Trace tracing hook entries for ${target}.`);
   console.log(`Config: ${result.path}`);
 
   if (result.backupPath) {
@@ -192,29 +195,31 @@ function parseFlags(argv: string[]) {
 }
 
 async function runDev() {
-  const serverPort = process.env.TOOLTRACE_SERVER_PORT ?? "4319";
-  const webPort = process.env.TOOLTRACE_WEB_PORT ?? "3000";
+  const serverPort = getEnv("AGENT_TRACE_SERVER_PORT", "TOOLTRACE_SERVER_PORT") ?? "4319";
+  const webPort = getEnv("AGENT_TRACE_WEB_PORT", "TOOLTRACE_WEB_PORT") ?? "3000";
+  const databasePath = getEnv("AGENT_TRACE_DB_PATH", "TOOLTRACE_DB_PATH");
   const serverUrl = `http://localhost:${serverPort}`;
   const children: ChildProcess[] = [];
 
-  console.log("Starting ToolTrace local dashboard...");
+  console.log("Starting Agent-Trace local dashboard...");
   console.log(`Collector: ${serverUrl}`);
   console.log(`Dashboard: http://localhost:${webPort}`);
 
-  await runPnpm(["--filter", "@tooltrace/server", "db:init"], {
-    TOOLTRACE_DB_PATH: process.env.TOOLTRACE_DB_PATH
+  await runPnpm(["--filter", "@agent-trace/server", "db:init"], {
+    AGENT_TRACE_DB_PATH: databasePath
   });
 
   children.push(
-    spawnPnpm(["--filter", "@tooltrace/server", "dev"], {
+    spawnPnpm(["--filter", "@agent-trace/server", "dev"], {
       PORT: serverPort,
-      TOOLTRACE_DB_PATH: process.env.TOOLTRACE_DB_PATH
+      AGENT_TRACE_DB_PATH: databasePath
     })
   );
 
   children.push(
-    spawnPnpm(["--filter", "@tooltrace/web", "dev"], {
+    spawnPnpm(["--filter", "@agent-trace/web", "dev"], {
       PORT: webPort,
+      AGENT_TRACE_API_URL: serverUrl,
       TOOLTRACE_API_URL: serverUrl
     })
   );
@@ -243,7 +248,7 @@ async function runDev() {
             if (code === 0 || code === null) {
               resolve();
             } else {
-              reject(new Error(`ToolTrace child process exited with code ${code}`));
+              reject(new Error(`Agent-Trace child process exited with code ${code}`));
             }
           });
         })
@@ -268,7 +273,7 @@ function runPnpm(args: string[], env: NodeJS.ProcessEnv = {}) {
 function spawnPnpm(args: string[], env: NodeJS.ProcessEnv = {}) {
   const pnpm = resolvePnpmCommand();
   const child = spawn(pnpm.command, [...pnpm.args, ...args], {
-    cwd: process.cwd(),
+    cwd: workspaceRoot,
     env: {
       ...process.env,
       ...withoutUndefined(env)
@@ -304,18 +309,22 @@ function withoutUndefined(env: NodeJS.ProcessEnv) {
   return Object.fromEntries(Object.entries(env).filter(([, value]) => value !== undefined));
 }
 
+function getEnv(primary: string, legacy: string) {
+  return process.env[primary] ?? process.env[legacy];
+}
+
 function printHelp() {
-  console.log(`ToolTrace CLI
+  console.log(`Agent-Trace CLI
 
 Usage:
-  tooltrace dev
-  tooltrace install <target> [options]
-  tooltrace uninstall <target>
+  agent-trace dev
+  agent-trace install <target> [options]
+  agent-trace uninstall <target>
 
 Commands:
   dev        Start the local collector and dashboard
   install    Install global agent tracing hooks
-  uninstall  Remove ToolTrace-managed tracing hooks
+  uninstall  Remove Agent-Trace-managed tracing hooks
 
 Targets:
   codex      Codex (~/.codex/hooks.json)
@@ -324,7 +333,7 @@ Targets:
 }
 
 function printInstallHelp() {
-  console.log(`tooltrace install <target> [options]
+  console.log(`agent-trace install <target> [options]
 
 Targets:
   codex                  Codex (~/.codex/hooks.json)
@@ -339,10 +348,11 @@ Options:
 Environment:
   CODEX_HOME                Codex config directory override
   CLAUDE_CONFIG_DIR         Claude Code config directory override
-  TOOLTRACE_COLLECTOR_URL   Default collector base URL
+  AGENT_TRACE_COLLECTOR_URL   Default collector base URL
+  TOOLTRACE_COLLECTOR_URL     Legacy collector base URL
 
-A timestamped .tooltrace-backup file is created before the config is changed.
-Re-running install is safe; it replaces only the ToolTrace-managed entries.
+A timestamped .agent-trace-backup file is created before the config is changed.
+Re-running install is safe; it replaces only the Agent-Trace-managed entries.
 For Codex, install also configures JSON OTel logs for token usage; restart Codex
 after install so the new telemetry setting is loaded. Codex Desktop and CLI share
 the same Codex config, so the last codex install surface is the one that will be
@@ -351,28 +361,29 @@ reported until you reinstall with another --surface value.
 }
 
 function printUninstallHelp() {
-  console.log(`tooltrace uninstall <target>
+  console.log(`agent-trace uninstall <target>
 
 Targets:
   codex                  Codex (~/.codex/hooks.json)
   claude-code            Claude Code (~/.claude/settings.json)
 
-Removes only the ToolTrace-managed hook entries. User-defined hooks and other
-config keys are left untouched. A timestamped .tooltrace-backup file is created
+Removes only the Agent-Trace-managed hook entries. User-defined hooks and other
+config keys are left untouched. A timestamped .agent-trace-backup file is created
 before the config is changed.
 `);
 }
 
 function printDevHelp() {
-  console.log(`tooltrace dev
+  console.log(`agent-trace dev
 
 Starts:
   collector   http://localhost:4319
   dashboard   http://localhost:3000
 
 Environment:
-  TOOLTRACE_DB_PATH       SQLite database path
-  TOOLTRACE_SERVER_PORT   Collector port, default 4319
-  TOOLTRACE_WEB_PORT      Dashboard port, default 3000
+  AGENT_TRACE_DB_PATH       SQLite database path
+  AGENT_TRACE_SERVER_PORT   Collector port, default 4319
+  AGENT_TRACE_WEB_PORT      Dashboard port, default 3000
+  TOOLTRACE_*               Legacy environment variable names are still accepted
 `);
 }

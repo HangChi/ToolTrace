@@ -1,5 +1,5 @@
 {
-  "name": "@tooltrace/schema",
+  "name": "@agent-trace/schema",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",

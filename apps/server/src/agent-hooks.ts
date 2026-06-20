@@ -9,7 +9,7 @@ import type {
   TraceMetadata,
   TraceStatus,
   UpdateRun
-} from "@tooltrace/schema";
+} from "@agent-trace/schema";
 
 import { createEvent, createRun, getRunById, updateRun } from "./storage.js";
 import { estimateTextTokenUsage } from "./token-estimator.js";

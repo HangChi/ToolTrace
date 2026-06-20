@@ -1,12 +1,15 @@
-import { startRun } from "@tooltrace/sdk";
+import { startRun } from "@agent-trace/sdk";
 
-const task = process.env.TOOLTRACE_EXAMPLE_TASK ?? "Research MCP ecosystem";
+const task =
+  process.env.AGENT_TRACE_EXAMPLE_TASK ??
+  process.env.TOOLTRACE_EXAMPLE_TASK ??
+  "Research MCP ecosystem";
 
 async function main() {
   const run = startRun({
     name: "simple-agent",
     input: { task },
-    endpoint: process.env.TOOLTRACE_ENDPOINT
+    endpoint: process.env.AGENT_TRACE_ENDPOINT ?? process.env.TOOLTRACE_ENDPOINT
   });
 
   try {
@@ -31,7 +34,7 @@ async function main() {
       () => fakeTool("MCP ecosystem")
     );
 
-    if (process.env.TOOLTRACE_EXAMPLE_FAIL === "1") {
+    if ((process.env.AGENT_TRACE_EXAMPLE_FAIL ?? process.env.TOOLTRACE_EXAMPLE_FAIL) === "1") {
       await run.traceTool("fetch_source", { url: "https://example.test/slow" }, async () => {
         await sleep(120);
         throw new Error("Request timed out after 100ms");

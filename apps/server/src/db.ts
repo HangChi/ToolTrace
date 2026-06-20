@@ -1,10 +1,10 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 
-export const defaultDatabasePath = "tooltrace.db";
+export const defaultDatabasePath = "agent-trace.db";
 
 export function getDatabasePath() {
-  return process.env.TOOLTRACE_DB_PATH ?? defaultDatabasePath;
+  return process.env.AGENT_TRACE_DB_PATH ?? process.env.TOOLTRACE_DB_PATH ?? defaultDatabasePath;
 }
 
 export function createSqliteDatabase(path = getDatabasePath()): Database.Database {

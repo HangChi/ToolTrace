@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { installHooks } from "./hooks.js";
 
 const previousCodexHome = process.env.CODEX_HOME;
-const codexHome = mkdtempSync(join(tmpdir(), "tooltrace-cli-smoke-"));
+const codexHome = mkdtempSync(join(tmpdir(), "agent-trace-cli-smoke-"));
 
 try {
   process.env.CODEX_HOME = codexHome;
@@ -34,7 +34,7 @@ try {
     throw new Error("Expected Windows Codex hook command to use curl.exe and NUL output.");
   }
 
-  if (!command.includes("surface=cli") || !command.includes("surface_source=tooltrace-cli")) {
+  if (!command.includes("surface=cli") || !command.includes("surface_source=agent-trace-cli")) {
     throw new Error("Expected default Codex hook command to include CLI surface hints.");
   }
 
@@ -42,7 +42,7 @@ try {
     throw new Error("Expected primary Codex hook command to be Windows-safe on Windows.");
   }
 
-  if (!config.includes("surface=cli") || !config.includes("surface_source=tooltrace-cli")) {
+  if (!config.includes("surface=cli") || !config.includes("surface_source=agent-trace-cli")) {
     throw new Error("Expected Codex OTel endpoint to include CLI surface hints.");
   }
 
@@ -60,19 +60,19 @@ try {
 
   if (
     !desktopCommand?.includes("surface=desktop") ||
-    !desktopCommand.includes("surface_source=tooltrace-desktop")
+    !desktopCommand.includes("surface_source=agent-trace-desktop")
   ) {
     throw new Error("Expected Codex desktop hook command to include desktop surface hints.");
   }
 
   if (
     !desktopConfig.includes("surface=desktop") ||
-    !desktopConfig.includes("surface_source=tooltrace-desktop")
+    !desktopConfig.includes("surface_source=agent-trace-desktop")
   ) {
     throw new Error("Expected Codex OTel endpoint to include desktop surface hints.");
   }
 
-  console.log("ToolTrace CLI smoke test passed.");
+  console.log("Agent-Trace CLI smoke test passed.");
 } finally {
   if (previousCodexHome === undefined) {
     delete process.env.CODEX_HOME;
