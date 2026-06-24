@@ -107,7 +107,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
     <main id="main-content" className="min-h-screen bg-background text-foreground">
       <AutoRefresh />
       <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl">
-        <div className="w-full px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
@@ -146,8 +146,8 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
         </div>
       </header>
 
-      <section className="w-full px-4 py-5 sm:px-6 lg:px-8">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label={text.runs.allRuns} value={totalRuns} icon={Activity} accent="sky" />
           <MetricCard
             label={text.runs.agentSource}
@@ -194,56 +194,40 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
           ) : null}
           {!error && runs.length > 0 ? (
             <form id={runsBulkDeleteFormId}>
-              <Table className="min-w-[1802px] table-fixed">
+              <Table className="min-w-[1120px] table-fixed">
                 <colgroup>
-                  <col className="w-[48px]" />
-                  <col className="w-[320px]" />
-                  <col className="w-[130px]" />
-                  <col className="w-[120px]" />
-                  <col className="w-[210px]" />
-                  <col className="w-[240px]" />
+                  <col className="w-[44px]" />
+                  <col className="w-[360px]" />
+                  <col className="w-[140px]" />
                   <col className="w-[220px]" />
-                  <col className="w-[160px]" />
-                  <col className="w-[190px]" />
-                  <col className="w-[100px]" />
-                  <col className="w-[64px]" />
+                  <col className="w-[170px]" />
+                  <col className="w-[146px]" />
+                  <col className="w-[42px]" />
                 </colgroup>
                 <TableHeader>
                   <TableRow className="bg-surface-muted/80 hover:bg-surface-muted/80">
-                    <TableHead className="h-10 pl-4 pr-0">
+                    <TableHead className="h-11 pl-4 pr-0">
                       <SelectAllRunsCheckbox
                         formId={runsBulkDeleteFormId}
                         label={text.runs.selectAll}
                       />
                     </TableHead>
-                    <TableHead className="h-10">
+                    <TableHead className="h-11">
                       {text.runs.tableRun}
                     </TableHead>
-                    <TableHead className="h-10">
-                      {text.runs.tableSource}
+                    <TableHead className="h-11">
+                      {text.runs.tableSource} / {text.runs.tableStatus}
                     </TableHead>
-                    <TableHead className="h-10">
-                      {text.runs.tableStatus}
+                    <TableHead className="h-11">
+                      {text.runs.tableModel} / {text.runs.tableTracked}
                     </TableHead>
-                    <TableHead className="h-10">
-                      {text.runs.tableModel}
+                    <TableHead className="h-11">
+                      {text.runs.tableTokens} / {text.runs.tableCost}
                     </TableHead>
-                    <TableHead className="h-10">
-                      {text.runs.tableTracked}
+                    <TableHead className="h-11">
+                      {text.runs.tableStarted} / {text.runs.tableDuration}
                     </TableHead>
-                    <TableHead className="h-10">
-                      {text.runs.tableTokens}
-                    </TableHead>
-                    <TableHead className="h-10">
-                      {text.runs.tableCost}
-                    </TableHead>
-                    <TableHead className="h-10">
-                      {text.runs.tableStarted}
-                    </TableHead>
-                    <TableHead className="h-10">
-                      {text.runs.tableDuration}
-                    </TableHead>
-                    <TableHead className="h-10 pr-4" />
+                    <TableHead className="h-11 pr-4" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -252,7 +236,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                       key={run.id}
                       className="group"
                     >
-                      <TableCell className="py-3 pl-4 pr-0 align-top">
+                      <TableCell className="py-4 pl-4 pr-0 align-top">
                         <input
                           type="checkbox"
                           name="runIds"
@@ -262,7 +246,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                           aria-label={`${text.runs.selectRun}: ${run.name}`}
                         />
                       </TableCell>
-                      <TableCell className="py-3 whitespace-normal">
+                      <TableCell className="py-4 whitespace-normal">
                         <div className="flex min-w-0 items-center gap-3">
                           <StatusDot status={run.status} />
                           <div className="min-w-0">
@@ -278,11 +262,11 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-3 align-top">
+                      <TableCell className="py-4 align-top whitespace-normal">
                         <SourceCell metadata={run.metadata} locale={locale} />
-                      </TableCell>
-                      <TableCell className="py-3 align-top whitespace-normal">
-                        <StatusBadge status={run.status} locale={locale} />
+                        <div className="mt-2">
+                          <StatusBadge status={run.status} locale={locale} />
+                        </div>
                         {run.error ? (
                           <div
                             className="mt-1 max-w-[96px] truncate font-mono text-[11px] text-destructive"
@@ -292,37 +276,35 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                           </div>
                         ) : null}
                       </TableCell>
-                      <TableCell className="py-3 align-top whitespace-normal">
+                      <TableCell className="py-4 align-top whitespace-normal">
                         <ModelCell summary={run.metadata?.summary} />
+                        <div className="mt-2">
+                          <SummaryCell summary={run.metadata?.summary} locale={locale} />
+                        </div>
                       </TableCell>
-                      <TableCell className="py-3 align-top whitespace-normal">
-                        <SummaryCell summary={run.metadata?.summary} locale={locale} />
-                      </TableCell>
-                      <TableCell className="py-3 align-top whitespace-normal">
+                      <TableCell className="py-4 align-top whitespace-normal">
                         <TokenCell tokenUsage={run.metadata?.summary?.tokenUsage} locale={locale} />
+                        <div className="mt-2">
+                          <CostCell
+                            cost={calculateRunCost(run.metadata?.summary, exchangeRate)}
+                            locale={locale}
+                          />
+                        </div>
                       </TableCell>
-                      <TableCell className="py-3 align-top whitespace-normal">
-                        <CostCell
-                          cost={calculateRunCost(run.metadata?.summary, exchangeRate)}
-                          locale={locale}
-                        />
-                      </TableCell>
-                      <TableCell className="py-3 align-top text-[13px] text-muted-foreground tabular-nums">
-                        {formatDateTime(run.startedAt, locale)}
-                      </TableCell>
-                      <TableCell className="py-3 align-top">
-                        <span
+                      <TableCell className="py-4 align-top text-[13px] text-muted-foreground tabular-nums">
+                        <div>{formatDateTime(run.startedAt, locale)}</div>
+                        <div
                           className={cn(
-                            "text-[13px] tabular-nums",
+                            "mt-1 text-[12px] tabular-nums",
                             run.status === "running"
                               ? "font-medium text-status-warning"
                               : "text-muted-foreground"
                           )}
                         >
                           {formatDuration(run.startedAt, run.endedAt, locale)}
-                        </span>
+                        </div>
                       </TableCell>
-                      <TableCell className="py-3 pr-4 text-right align-top">
+                      <TableCell className="py-4 pr-4 text-right align-top">
                         <DeleteRunButton
                           runId={run.id}
                           label={text.runs.delete}
@@ -512,7 +494,7 @@ function SummaryCell({ summary, locale }: { summary?: RunSummary; locale: Locale
   ].filter((item): item is string => Boolean(item));
 
   return (
-    <div className="min-w-[180px]">
+    <div className="min-w-0">
       <div className="flex flex-wrap gap-1.5">
         {counts.map((item) => (
           <span
