@@ -4,6 +4,7 @@ const net = require("node:net");
 const path = require("node:path");
 
 const { app, BrowserWindow, shell } = require("electron");
+const tar = require("tar");
 
 const productName = "Agent-Trace";
 const host = "127.0.0.1";
@@ -51,7 +52,10 @@ if (!app.requestSingleInstanceLock()) {
 
 async function startDesktopApp() {
   mainWindow = createWindow();
-  showStatusPage("Starting Agent-Trace", "Preparing the local collector and dashboard.");
+  showStatusPage(
+    "Starting Agent-Trace",
+    "Preparing the local collector and dashboard. First launch can take a minute while runtime files are unpacked."
+  );
 
   try {
     const collector = await startCollectorService();
@@ -117,6 +121,7 @@ async function startCollectorService() {
   process.env.PORT = String(port);
 
   if (app.isPackaged) {
+    await preparePackagedRuntime("server");
     const serverScript = getPackagedCollectorServerScript();
 
     spawnPackagedNode(
@@ -158,6 +163,7 @@ async function startDashboardService(collectorUrl) {
   };
 
   if (app.isPackaged) {
+    await preparePackagedRuntime("web");
     const serverScript = getPackagedDashboardServerScript();
 
     spawnPackagedNode(serverScript, env, path.dirname(serverScript));
@@ -171,7 +177,12 @@ async function startDashboardService(collectorUrl) {
 }
 
 function getPackagedCollectorServerScript() {
-  const serverScript = path.join(process.resourcesPath, "server", "app", "dist", "index.js");
+  const serverScript = path.join(
+    getRuntimePath("server"),
+    "app",
+    "dist",
+    "index.js"
+  );
 
   if (!fs.existsSync(serverScript)) {
     throw new Error(`Packaged collector server was not found at ${serverScript}.`);
@@ -181,13 +192,77 @@ function getPackagedCollectorServerScript() {
 }
 
 function getPackagedDashboardServerScript() {
-  const serverScript = path.join(process.resourcesPath, "web", "app", "apps", "web", "server.js");
+  const serverScript = path.join(
+    getRuntimePath("web"),
+    "app",
+    "apps",
+    "web",
+    "server.js"
+  );
 
   if (!fs.existsSync(serverScript)) {
     throw new Error(`Packaged dashboard server was not found at ${serverScript}.`);
   }
 
   return serverScript;
+}
+
+const runtimePathCache = new Map();
+
+function getRuntimePath(name) {
+  const cached = runtimePathCache.get(name);
+
+  if (cached) {
+    return cached;
+  }
+
+  throw new Error(`Packaged ${name} runtime has not been prepared.`);
+}
+
+async function preparePackagedRuntime(name) {
+  const archivePath = path.join(process.resourcesPath, "archives", `${name}.tgz`);
+
+  if (!fs.existsSync(archivePath)) {
+    throw new Error(`Packaged ${name} archive was not found at ${archivePath}.`);
+  }
+
+  const archiveStat = fs.statSync(archivePath);
+  const runtimeRoot = path.join(app.getPath("userData"), "runtime");
+  const runtimeName = `${name}-${archiveStat.size}-${Math.floor(archiveStat.mtimeMs)}`;
+  const runtimePath = path.join(runtimeRoot, runtimeName);
+  const markerPath = path.join(runtimePath, ".agent-trace-runtime-ready");
+
+  if (!fs.existsSync(markerPath)) {
+    fs.rmSync(runtimePath, { recursive: true, force: true });
+    fs.mkdirSync(runtimePath, { recursive: true });
+
+    await tar.x({
+      cwd: runtimePath,
+      file: archivePath,
+      preservePaths: false
+    });
+
+    fs.writeFileSync(markerPath, new Date().toISOString());
+  }
+
+  runtimePathCache.set(name, runtimePath);
+  cleanupOldRuntimeDirs(runtimeRoot, name, runtimeName);
+
+  return runtimePath;
+}
+
+function cleanupOldRuntimeDirs(runtimeRoot, name, keepName) {
+  if (!fs.existsSync(runtimeRoot)) {
+    return;
+  }
+
+  for (const entry of fs.readdirSync(runtimeRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !entry.name.startsWith(`${name}-`) || entry.name === keepName) {
+      continue;
+    }
+
+    fs.rmSync(path.join(runtimeRoot, entry.name), { recursive: true, force: true });
+  }
 }
 
 function resolveDatabasePath() {

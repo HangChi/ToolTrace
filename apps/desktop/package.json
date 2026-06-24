@@ -23,6 +23,7 @@
   "build": {
     "appId": "dev.agent-trace.desktop",
     "productName": "Agent-Trace",
+    "compression": "store",
     "directories": {
       "output": "release"
     },
@@ -37,12 +38,8 @@
         "to": "node"
       },
       {
-        "from": "resources/server",
-        "to": "server"
-      },
-      {
-        "from": "resources/web",
-        "to": "web"
+        "from": "resources/archives",
+        "to": "archives"
       }
     ],
     "npmRebuild": false,
@@ -66,5 +63,8 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
     }
+  },
+  "dependencies": {
+    "tar": "^7.5.16"
   }
 }

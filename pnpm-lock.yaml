@@ -13,6 +13,10 @@ importers:
         version: 5.9.3
 
   apps/desktop:
+    dependencies:
+      tar:
+        specifier: ^7.5.16
+        version: 7.5.16
     devDependencies:
       '@agent-trace/server':
         specifier: workspace:*

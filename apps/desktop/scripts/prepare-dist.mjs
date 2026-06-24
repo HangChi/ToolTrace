@@ -3,14 +3,20 @@ import { copyFileSync, existsSync, readdirSync, rmSync, cpSync, mkdirSync } from
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import * as tar from "tar";
+
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
 const workspaceRoot = resolve(desktopRoot, "../..");
+const resourcesArchivesDir = resolve(desktopRoot, "resources/archives");
 const resourcesNodeDir = resolve(desktopRoot, "resources/node");
 const resourcesServerRootDir = resolve(desktopRoot, "resources/server");
-const resourcesServerAppDir = resolve(resourcesServerRootDir, "app");
 const resourcesWebRootDir = resolve(desktopRoot, "resources/web");
-const resourcesWebAppDir = resolve(resourcesWebRootDir, "app");
+const stagingDir = resolve(desktopRoot, "resources/staging");
+const stagingServerRootDir = resolve(stagingDir, "server");
+const stagingServerAppDir = resolve(stagingServerRootDir, "app");
+const stagingWebRootDir = resolve(stagingDir, "web");
+const stagingWebAppDir = resolve(stagingWebRootDir, "app");
 const skipBuild = process.argv.includes("--skip-build");
 
 if (!skipBuild) {
@@ -33,26 +39,39 @@ if (!existsSync(staticDir)) {
 }
 
 rmSync(resourcesNodeDir, { recursive: true, force: true });
+rmSync(resourcesArchivesDir, { recursive: true, force: true });
 rmSync(resourcesServerRootDir, { recursive: true, force: true });
 rmSync(resourcesWebRootDir, { recursive: true, force: true });
+rmSync(stagingDir, { recursive: true, force: true });
 mkdirSync(resourcesNodeDir, { recursive: true });
-mkdirSync(resourcesWebAppDir, { recursive: true });
+mkdirSync(resourcesArchivesDir, { recursive: true });
+mkdirSync(stagingWebAppDir, { recursive: true });
 
 copyFileSync(process.execPath, resolve(resourcesNodeDir, nodeExecutableName));
 await runPnpm(
-  ["--filter", "@agent-trace/server", "deploy", "--prod", "--legacy", resourcesServerAppDir],
+  ["--filter", "@agent-trace/server", "deploy", "--prod", "--legacy", stagingServerAppDir],
   workspaceRoot
 );
+copyPnpmHoistedDependencies(resolve(stagingServerAppDir, "node_modules"), {
+  skipEntries: new Set(["@agent-trace"]),
+  skipExisting: true
+});
 
-cpSync(standaloneDir, resourcesWebAppDir, { recursive: true });
-cpSync(staticDir, resolve(resourcesWebAppDir, "apps/web/.next/static"), { recursive: true });
-copyPnpmHoistedDependencies(resolve(resourcesWebAppDir, "node_modules"));
+cpSync(standaloneDir, stagingWebAppDir, { recursive: true, dereference: true });
+cpSync(staticDir, resolve(stagingWebAppDir, "apps/web/.next/static"), { recursive: true });
+copyPnpmHoistedDependencies(resolve(stagingWebAppDir, "node_modules"));
 
 if (existsSync(publicDir)) {
-  cpSync(publicDir, resolve(resourcesWebAppDir, "apps/web/public"), { recursive: true });
+  cpSync(publicDir, resolve(stagingWebAppDir, "apps/web/public"), { recursive: true });
 }
 
-function copyPnpmHoistedDependencies(nodeModulesDir) {
+createRuntimeArchive(stagingServerRootDir, resolve(resourcesArchivesDir, "server.tgz"));
+createRuntimeArchive(stagingWebRootDir, resolve(resourcesArchivesDir, "web.tgz"));
+rmSync(stagingDir, { recursive: true, force: true });
+
+function copyPnpmHoistedDependencies(nodeModulesDir, options = {}) {
+  const skipEntries = options.skipEntries ?? new Set();
+  const skipExisting = options.skipExisting ?? false;
   const hoistedDir = resolve(nodeModulesDir, ".pnpm/node_modules");
 
   if (!existsSync(hoistedDir)) {
@@ -60,12 +79,37 @@ function copyPnpmHoistedDependencies(nodeModulesDir) {
   }
 
   for (const entry of readdirSync(hoistedDir)) {
-    cpSync(resolve(hoistedDir, entry), resolve(nodeModulesDir, entry), {
+    const targetPath = resolve(nodeModulesDir, entry);
+
+    if (skipEntries.has(entry)) {
+      continue;
+    }
+
+    if (skipExisting && existsSync(targetPath)) {
+      continue;
+    }
+
+    cpSync(resolve(hoistedDir, entry), targetPath, {
       recursive: true,
       dereference: true,
       force: true
     });
   }
+}
+
+function createRuntimeArchive(cwd, file) {
+  tar.c(
+    {
+      cwd,
+      file,
+      follow: true,
+      gzip: true,
+      noMtime: true,
+      portable: true,
+      sync: true
+    },
+    ["app"]
+  );
 }
 
 function runPnpm(args, cwd) {
