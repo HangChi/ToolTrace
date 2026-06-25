@@ -1,6 +1,6 @@
 {
   "name": "@agent-trace/desktop",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Local-first AI agent debugging dashboard.",
   "author": "Agent-Trace",
   "private": true,
@@ -23,7 +23,7 @@
   "build": {
     "appId": "dev.agent-trace.desktop",
     "productName": "Agent-Trace",
-    "compression": "store",
+    "compression": "maximum",
     "directories": {
       "output": "release"
     },
@@ -61,7 +61,8 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true
     }
   },
   "dependencies": {

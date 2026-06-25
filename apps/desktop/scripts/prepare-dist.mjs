@@ -102,6 +102,7 @@ function createRuntimeArchive(cwd, file) {
     {
       cwd,
       file,
+      filter: shouldIncludeRuntimeArchiveEntry,
       follow: true,
       gzip: true,
       noMtime: true,
@@ -110,6 +111,19 @@ function createRuntimeArchive(cwd, file) {
     },
     ["app"]
   );
+}
+
+function shouldIncludeRuntimeArchiveEntry(entryPath) {
+  const normalizedPath = entryPath.replaceAll("\\", "/");
+
+  if (
+    normalizedPath.includes("/node_modules/.pnpm/") ||
+    normalizedPath.endsWith("/node_modules/.pnpm")
+  ) {
+    return false;
+  }
+
+  return !normalizedPath.endsWith(".map") && !normalizedPath.endsWith(".d.ts");
 }
 
 function runPnpm(args, cwd) {
