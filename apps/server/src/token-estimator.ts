@@ -1,10 +1,18 @@
-import { getEncoding, type Tiktoken, type TiktokenEncoding } from "js-tiktoken";
+import { Tiktoken, type TiktokenBPE } from "js-tiktoken/lite";
+import cl100kBase from "js-tiktoken/ranks/cl100k_base";
+import o200kBase from "js-tiktoken/ranks/o200k_base";
 
 import type { TokenUsage } from "@agent-trace/schema";
 
 type TokenDirection = "input" | "output";
+type SupportedEncoding = "cl100k_base" | "o200k_base";
 
-const encoders = new Map<TiktokenEncoding, Tiktoken>();
+const ranksByEncoding: Record<SupportedEncoding, TiktokenBPE> = {
+  cl100k_base: cl100kBase,
+  o200k_base: o200kBase
+};
+
+const encoders = new Map<SupportedEncoding, Tiktoken>();
 
 export function estimateTextTokenUsage(input: {
   text: string;
@@ -30,20 +38,20 @@ export function estimateTextTokenUsage(input: {
   };
 }
 
-function getCachedEncoder(name: TiktokenEncoding) {
+function getCachedEncoder(name: SupportedEncoding) {
   const cached = encoders.get(name);
 
   if (cached !== undefined) {
     return cached;
   }
 
-  const encoder = getEncoding(name);
+  const encoder = new Tiktoken(ranksByEncoding[name]);
   encoders.set(name, encoder);
 
   return encoder;
 }
 
-function getEncodingName(model: string | undefined): TiktokenEncoding {
+function getEncodingName(model: string | undefined): SupportedEncoding {
   const normalized = model?.toLowerCase() ?? "";
 
   if (
