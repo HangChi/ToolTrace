@@ -38,6 +38,7 @@ import {
   SelectAllRunsCheckbox
 } from "./run-controls";
 import { calculateRunCost, getUsdCnyRate, type RunCost } from "~/lib/cost";
+import { ResizableTableColumns } from "./resizable-table-columns";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,52 @@ type RunsSearchParams = Promise<{ lang?: string | string[] }>;
 
 const collectorUrl = process.env.AGENT_TRACE_API_URL ?? process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
 const runsBulkDeleteFormId = "runs-bulk-delete-form";
+const runsTableColumnStorageKey = "agent-trace:runs-table-columns:v1";
+const runsTableFixedColumnWidth = 44 + 42;
+const runsTableColumns = [
+  {
+    id: "run",
+    cssVariable: "--runs-col-run" as const,
+    defaultWidth: 360,
+    minWidth: 220,
+    maxWidth: 640
+  },
+  {
+    id: "source",
+    cssVariable: "--runs-col-source" as const,
+    defaultWidth: 140,
+    minWidth: 110,
+    maxWidth: 260
+  },
+  {
+    id: "status",
+    cssVariable: "--runs-col-status" as const,
+    defaultWidth: 96,
+    minWidth: 88,
+    maxWidth: 180
+  },
+  {
+    id: "model",
+    cssVariable: "--runs-col-model" as const,
+    defaultWidth: 220,
+    minWidth: 160,
+    maxWidth: 420
+  },
+  {
+    id: "tokens",
+    cssVariable: "--runs-col-tokens" as const,
+    defaultWidth: 170,
+    minWidth: 130,
+    maxWidth: 300
+  },
+  {
+    id: "started",
+    cssVariable: "--runs-col-started" as const,
+    defaultWidth: 146,
+    minWidth: 130,
+    maxWidth: 260
+  }
+];
 
 export default async function RunsPage({ searchParams }: { searchParams: RunsSearchParams }) {
   const locale = parseLocale((await searchParams).lang);
@@ -194,132 +241,166 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
           ) : null}
           {!error && runs.length > 0 ? (
             <form id={runsBulkDeleteFormId}>
-              <Table className="min-w-[1120px] table-fixed">
-                <colgroup>
-                  <col className="w-[44px]" />
-                  <col className="w-[360px]" />
-                  <col className="w-[140px]" />
-                  <col className="w-[220px]" />
-                  <col className="w-[170px]" />
-                  <col className="w-[146px]" />
-                  <col className="w-[42px]" />
-                </colgroup>
-                <TableHeader>
-                  <TableRow className="bg-surface-muted/80 hover:bg-surface-muted/80">
-                    <TableHead className="h-11 pl-4 pr-0">
-                      <SelectAllRunsCheckbox
-                        formId={runsBulkDeleteFormId}
-                        label={text.runs.selectAll}
-                      />
-                    </TableHead>
-                    <TableHead className="h-11">
-                      {text.runs.tableRun}
-                    </TableHead>
-                    <TableHead className="h-11">
-                      {text.runs.tableSource} / {text.runs.tableStatus}
-                    </TableHead>
-                    <TableHead className="h-11">
-                      {text.runs.tableModel} / {text.runs.tableTracked}
-                    </TableHead>
-                    <TableHead className="h-11">
-                      {text.runs.tableTokens} / {text.runs.tableCost}
-                    </TableHead>
-                    <TableHead className="h-11">
-                      {text.runs.tableStarted} / {text.runs.tableDuration}
-                    </TableHead>
-                    <TableHead className="h-11 pr-4" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {runs.map((run) => (
-                    <TableRow
-                      key={run.id}
-                      className="group"
-                    >
-                      <TableCell className="py-4 pl-4 pr-0 align-top">
-                        <input
-                          type="checkbox"
-                          name="runIds"
-                          value={run.id}
-                          data-run-checkbox="true"
-                          className="mt-1 size-4 rounded border-border accent-primary"
-                          aria-label={`${text.runs.selectRun}: ${run.name}`}
+              <ResizableTableColumns
+                columns={runsTableColumns}
+                fixedWidth={runsTableFixedColumnWidth}
+                storageKey={runsTableColumnStorageKey}
+              >
+                <Table
+                  className="table-fixed"
+                  style={{
+                    minWidth: "var(--runs-table-width)",
+                    width: "max(100%, var(--runs-table-width))"
+                  }}
+                >
+                  <colgroup>
+                    <col className="w-[44px]" />
+                    <col style={{ width: "var(--runs-col-run)" }} />
+                    <col style={{ width: "var(--runs-col-source)" }} />
+                    <col style={{ width: "var(--runs-col-status)" }} />
+                    <col style={{ width: "var(--runs-col-model)" }} />
+                    <col style={{ width: "var(--runs-col-tokens)" }} />
+                    <col style={{ width: "var(--runs-col-started)" }} />
+                    <col className="w-[42px]" />
+                  </colgroup>
+                  <TableHeader>
+                    <TableRow className="bg-surface-muted/80 hover:bg-surface-muted/80">
+                      <TableHead className="h-11 pl-4 pr-0">
+                        <SelectAllRunsCheckbox
+                          formId={runsBulkDeleteFormId}
+                          label={text.runs.selectAll}
                         />
-                      </TableCell>
-                      <TableCell className="py-4 whitespace-normal">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <StatusDot status={run.status} />
-                          <div className="min-w-0">
-                            <Link
-                              className="block break-all text-sm font-semibold text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
-                              href={localizedHref(`/runs/${run.id}`, locale)}
-                            >
-                              {run.name}
-                            </Link>
-                            <p className="mt-1 break-all font-mono text-[11px] leading-4 text-muted-foreground">
-                              {run.id}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 align-top whitespace-normal">
-                        <SourceCell metadata={run.metadata} locale={locale} />
-                        <div className="mt-2">
-                          <StatusBadge status={run.status} locale={locale} />
-                        </div>
-                        {run.error ? (
-                          <div
-                            className="mt-1 max-w-[96px] truncate font-mono text-[11px] text-destructive"
-                            title={run.error}
-                          >
-                            {run.error}
-                          </div>
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="py-4 align-top whitespace-normal">
-                        <ModelCell summary={run.metadata?.summary} />
-                        <div className="mt-2">
-                          <SummaryCell summary={run.metadata?.summary} locale={locale} />
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 align-top whitespace-normal">
-                        <TokenCell tokenUsage={run.metadata?.summary?.tokenUsage} locale={locale} />
-                        <div className="mt-2">
-                          <CostCell
-                            cost={calculateRunCost(run.metadata?.summary, exchangeRate)}
-                            locale={locale}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 align-top text-[13px] text-muted-foreground tabular-nums">
-                        <div>{formatDateTime(run.startedAt, locale)}</div>
-                        <div
-                          className={cn(
-                            "mt-1 text-[12px] tabular-nums",
-                            run.status === "running"
-                              ? "font-medium text-status-warning"
-                              : "text-muted-foreground"
-                          )}
-                        >
-                          {formatDuration(run.startedAt, run.endedAt, locale)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 pr-4 text-right align-top">
-                        <DeleteRunButton
-                          runId={run.id}
-                          label={text.runs.delete}
-                          deletingLabel={text.runs.deleting}
-                          title={text.runs.confirmPrompt}
-                          description={text.runs.confirmDelete}
-                          confirmLabel={text.runs.confirm}
-                          cancelLabel={text.runs.cancel}
-                          failedText={text.runs.deleteFailed}
+                      </TableHead>
+                      <TableHead className="relative h-11 pr-4">
+                        {text.runs.tableRun}
+                        <ColumnResizeHandle column="run" label={text.runs.tableRun} locale={locale} />
+                      </TableHead>
+                      <TableHead className="relative h-11 pr-4">
+                        {text.runs.tableSource}
+                        <ColumnResizeHandle column="source" label={text.runs.tableSource} locale={locale} />
+                      </TableHead>
+                      <TableHead className="relative h-11 pr-4">
+                        {text.runs.tableStatus}
+                        <ColumnResizeHandle column="status" label={text.runs.tableStatus} locale={locale} />
+                      </TableHead>
+                      <TableHead className="relative h-11 pr-4">
+                        {text.runs.tableModel} / {text.runs.tableTracked}
+                        <ColumnResizeHandle
+                          column="model"
+                          label={`${text.runs.tableModel} / ${text.runs.tableTracked}`}
+                          locale={locale}
                         />
-                      </TableCell>
+                      </TableHead>
+                      <TableHead className="relative h-11 pr-4">
+                        {text.runs.tableTokens} / {text.runs.tableCost}
+                        <ColumnResizeHandle
+                          column="tokens"
+                          label={`${text.runs.tableTokens} / ${text.runs.tableCost}`}
+                          locale={locale}
+                        />
+                      </TableHead>
+                      <TableHead className="relative h-11 pr-4">
+                        {text.runs.tableStarted} / {text.runs.tableDuration}
+                        <ColumnResizeHandle
+                          column="started"
+                          label={`${text.runs.tableStarted} / ${text.runs.tableDuration}`}
+                          locale={locale}
+                        />
+                      </TableHead>
+                      <TableHead className="h-11 pr-4" />
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {runs.map((run) => (
+                      <TableRow
+                        key={run.id}
+                        className="group"
+                      >
+                        <TableCell className="py-4 pl-4 pr-0 align-top">
+                          <input
+                            type="checkbox"
+                            name="runIds"
+                            value={run.id}
+                            data-run-checkbox="true"
+                            className="mt-1 size-4 rounded border-border accent-primary"
+                            aria-label={`${text.runs.selectRun}: ${run.name}`}
+                          />
+                        </TableCell>
+                        <TableCell className="py-4 whitespace-normal">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <StatusDot status={run.status} />
+                            <div className="min-w-0">
+                              <Link
+                                className="block break-all text-sm font-semibold text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+                                href={localizedHref(`/runs/${run.id}`, locale)}
+                              >
+                                {run.name}
+                              </Link>
+                              <p className="mt-1 break-all font-mono text-[11px] leading-4 text-muted-foreground">
+                                {run.id}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 align-top whitespace-normal">
+                          <SourceCell metadata={run.metadata} locale={locale} />
+                        </TableCell>
+                        <TableCell className="py-4 align-top whitespace-normal">
+                          <StatusBadge status={run.status} locale={locale} />
+                          {run.error ? (
+                            <div
+                              className="mt-1 max-w-[84px] truncate font-mono text-[11px] text-destructive"
+                              title={run.error}
+                            >
+                              {run.error}
+                            </div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="py-4 align-top whitespace-normal">
+                          <ModelCell summary={run.metadata?.summary} />
+                          <div className="mt-2">
+                            <SummaryCell summary={run.metadata?.summary} locale={locale} />
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 align-top whitespace-normal">
+                          <TokenCell tokenUsage={run.metadata?.summary?.tokenUsage} locale={locale} />
+                          <div className="mt-2">
+                            <CostCell
+                              cost={calculateRunCost(run.metadata?.summary, exchangeRate)}
+                              locale={locale}
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 align-top text-[13px] text-muted-foreground tabular-nums">
+                          <div>{formatDateTime(run.startedAt, locale)}</div>
+                          <div
+                            className={cn(
+                              "mt-1 text-[12px] tabular-nums",
+                              run.status === "running"
+                                ? "font-medium text-status-warning"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            {formatDuration(run.startedAt, run.endedAt, locale)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 pr-4 text-right align-top">
+                          <DeleteRunButton
+                            runId={run.id}
+                            label={text.runs.delete}
+                            deletingLabel={text.runs.deleting}
+                            title={text.runs.confirmPrompt}
+                            description={text.runs.confirmDelete}
+                            confirmLabel={text.runs.confirm}
+                            cancelLabel={text.runs.cancel}
+                            failedText={text.runs.deleteFailed}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ResizableTableColumns>
             </form>
           ) : null}
         </Card>
@@ -340,6 +421,28 @@ function StatusDot({ status }: { status: string }) {
         status === "running" &&
           "animate-pulse bg-status-warning shadow-[0_0_0_3px_var(--status-warning-subtle)]"
       )}
+    />
+  );
+}
+
+function ColumnResizeHandle({
+  column,
+  label,
+  locale
+}: {
+  column: string;
+  label: string;
+  locale: Locale;
+}) {
+  const title = locale === "zh" ? `调整${label}列宽` : `Resize ${label} column`;
+
+  return (
+    <button
+      type="button"
+      data-column-resizer={column}
+      aria-label={title}
+      title={title}
+      className="absolute right-0 top-1/2 h-6 w-3 -translate-y-1/2 cursor-col-resize touch-none rounded-sm bg-transparent p-0 outline-none transition-colors before:absolute before:left-1/2 before:top-1 before:h-4 before:w-px before:-translate-x-1/2 before:bg-border hover:before:bg-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:before:bg-primary"
     />
   );
 }
