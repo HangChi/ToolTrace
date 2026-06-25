@@ -11,8 +11,10 @@ const host = "127.0.0.1";
 const defaultCollectorPort = 4319;
 const defaultDashboardPort = 3000;
 const startupTimeoutMs = 60_000;
+const closeBehaviorAsk = "ask";
 const closeBehaviorExit = "exit";
 const closeBehaviorMinimize = "minimize";
+const desktopPreferencesFileName = "preferences.json";
 
 let mainWindow;
 let tray;
@@ -121,6 +123,13 @@ async function handleWindowClose(event, window) {
 
   event.preventDefault();
 
+  const savedBehavior = getCloseBehaviorPreference();
+
+  if (savedBehavior !== closeBehaviorAsk) {
+    applyCloseBehavior(savedBehavior, window);
+    return;
+  }
+
   if (isCloseDialogOpen) {
     return;
   }
@@ -134,11 +143,17 @@ async function handleWindowClose(event, window) {
       defaultId: 0,
       cancelId: 1,
       noLink: true,
+      checkboxLabel: "\u8bb0\u4f4f\u6211\u7684\u9009\u62e9",
+      checkboxChecked: false,
       message: "关闭 Agent-Trace？",
       detail: "退出会停止本次由桌面端启动的本地服务；最小化到托盘会让服务继续运行。"
     });
 
     const behavior = result.response === 0 ? closeBehaviorExit : closeBehaviorMinimize;
+
+    if (result.checkboxChecked) {
+      setCloseBehaviorPreference(behavior);
+    }
 
     applyCloseBehavior(behavior, window);
   } finally {
@@ -153,6 +168,46 @@ function applyCloseBehavior(behavior, window) {
   }
 
   hideWindowToTray(window);
+}
+
+function getCloseBehaviorPreference() {
+  return parseCloseBehavior(readDesktopPreferences().closeBehavior);
+}
+
+function setCloseBehaviorPreference(behavior) {
+  const preferences = readDesktopPreferences();
+  preferences.closeBehavior = parseCloseBehavior(behavior);
+  writeDesktopPreferences(preferences);
+}
+
+function readDesktopPreferences() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(getDesktopPreferencesPath(), "utf8"));
+
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDesktopPreferences(preferences) {
+  const preferencesPath = getDesktopPreferencesPath();
+
+  fs.mkdirSync(path.dirname(preferencesPath), { recursive: true });
+  fs.writeFileSync(preferencesPath, `${JSON.stringify(preferences, null, 2)}\n`, "utf8");
+}
+
+function parseCloseBehavior(value) {
+  return value === closeBehaviorExit || value === closeBehaviorMinimize || value === closeBehaviorAsk
+    ? value
+    : closeBehaviorAsk;
+}
+
+function getDesktopPreferencesPath() {
+  const userDataDir = app.getPath("userData");
+  fs.mkdirSync(userDataDir, { recursive: true });
+
+  return path.join(userDataDir, desktopPreferencesFileName);
 }
 
 function quitDesktopApp() {
@@ -269,7 +324,8 @@ async function startDashboardService(collectorUrl) {
     PORT: String(port),
     HOSTNAME: host,
     AGENT_TRACE_API_URL: collectorUrl,
-    TOOLTRACE_API_URL: collectorUrl
+    TOOLTRACE_API_URL: collectorUrl,
+    AGENT_TRACE_DESKTOP_PREFERENCES_PATH: getDesktopPreferencesPath()
   };
 
   if (app.isPackaged) {

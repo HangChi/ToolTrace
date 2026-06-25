@@ -37,6 +37,7 @@ import {
   RefreshButton,
   SelectAllRunsCheckbox
 } from "./run-controls";
+import { DesktopCloseSettings } from "./desktop-close-settings";
 import { calculateRunCost, getUsdCnyRate, type RunCost } from "~/lib/cost";
 import { ResizableTableColumns } from "./resizable-table-columns";
 
@@ -94,7 +95,7 @@ type RunsSearchParams = Promise<{ lang?: string | string[] }>;
 
 const collectorUrl = process.env.AGENT_TRACE_API_URL ?? process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
 const runsBulkDeleteFormId = "runs-bulk-delete-form";
-const runsTableColumnStorageKey = "agent-trace:runs-table-columns:v1";
+const runsTableColumnStorageKey = "agent-trace:runs-table-columns:v2";
 const runsTableFixedColumnWidth = 44 + 42;
 const runsTableColumns = [
   {
@@ -121,16 +122,30 @@ const runsTableColumns = [
   {
     id: "model",
     cssVariable: "--runs-col-model" as const,
-    defaultWidth: 220,
-    minWidth: 160,
-    maxWidth: 420
+    defaultWidth: 160,
+    minWidth: 120,
+    maxWidth: 320
+  },
+  {
+    id: "tracked",
+    cssVariable: "--runs-col-tracked" as const,
+    defaultWidth: 190,
+    minWidth: 150,
+    maxWidth: 360
   },
   {
     id: "tokens",
     cssVariable: "--runs-col-tokens" as const,
-    defaultWidth: 170,
+    defaultWidth: 150,
     minWidth: 130,
-    maxWidth: 300
+    maxWidth: 260
+  },
+  {
+    id: "cost",
+    cssVariable: "--runs-col-cost" as const,
+    defaultWidth: 150,
+    minWidth: 120,
+    maxWidth: 260
   },
   {
     id: "started",
@@ -138,6 +153,13 @@ const runsTableColumns = [
     defaultWidth: 146,
     minWidth: 130,
     maxWidth: 260
+  },
+  {
+    id: "duration",
+    cssVariable: "--runs-col-duration" as const,
+    defaultWidth: 104,
+    minWidth: 90,
+    maxWidth: 180
   }
 ];
 
@@ -174,6 +196,7 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end">
               <div className="flex items-center gap-2">
+                <DesktopCloseSettings locale={locale} />
                 <LanguageSwitcher locale={locale} path="/runs" />
                 <ThemeToggle locale={locale} />
               </div>
@@ -259,8 +282,11 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                     <col style={{ width: "var(--runs-col-source)" }} />
                     <col style={{ width: "var(--runs-col-status)" }} />
                     <col style={{ width: "var(--runs-col-model)" }} />
+                    <col style={{ width: "var(--runs-col-tracked)" }} />
                     <col style={{ width: "var(--runs-col-tokens)" }} />
+                    <col style={{ width: "var(--runs-col-cost)" }} />
                     <col style={{ width: "var(--runs-col-started)" }} />
+                    <col style={{ width: "var(--runs-col-duration)" }} />
                     <col className="w-[42px]" />
                   </colgroup>
                   <TableHeader>
@@ -284,28 +310,28 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                         <ColumnResizeHandle column="status" label={text.runs.tableStatus} locale={locale} />
                       </TableHead>
                       <TableHead className="relative h-11 pr-4">
-                        {text.runs.tableModel} / {text.runs.tableTracked}
-                        <ColumnResizeHandle
-                          column="model"
-                          label={`${text.runs.tableModel} / ${text.runs.tableTracked}`}
-                          locale={locale}
-                        />
+                        {text.runs.tableModel}
+                        <ColumnResizeHandle column="model" label={text.runs.tableModel} locale={locale} />
                       </TableHead>
                       <TableHead className="relative h-11 pr-4">
-                        {text.runs.tableTokens} / {text.runs.tableCost}
-                        <ColumnResizeHandle
-                          column="tokens"
-                          label={`${text.runs.tableTokens} / ${text.runs.tableCost}`}
-                          locale={locale}
-                        />
+                        {text.runs.tableTracked}
+                        <ColumnResizeHandle column="tracked" label={text.runs.tableTracked} locale={locale} />
                       </TableHead>
                       <TableHead className="relative h-11 pr-4">
-                        {text.runs.tableStarted} / {text.runs.tableDuration}
-                        <ColumnResizeHandle
-                          column="started"
-                          label={`${text.runs.tableStarted} / ${text.runs.tableDuration}`}
-                          locale={locale}
-                        />
+                        {text.runs.tableTokens}
+                        <ColumnResizeHandle column="tokens" label={text.runs.tableTokens} locale={locale} />
+                      </TableHead>
+                      <TableHead className="relative h-11 pr-4">
+                        {text.runs.tableCost}
+                        <ColumnResizeHandle column="cost" label={text.runs.tableCost} locale={locale} />
+                      </TableHead>
+                      <TableHead className="relative h-11 pr-4">
+                        {text.runs.tableStarted}
+                        <ColumnResizeHandle column="started" label={text.runs.tableStarted} locale={locale} />
+                      </TableHead>
+                      <TableHead className="relative h-11 pr-4">
+                        {text.runs.tableDuration}
+                        <ColumnResizeHandle column="duration" label={text.runs.tableDuration} locale={locale} />
                       </TableHead>
                       <TableHead className="h-11 pr-4" />
                     </TableRow>
@@ -358,24 +384,26 @@ export default async function RunsPage({ searchParams }: { searchParams: RunsSea
                         </TableCell>
                         <TableCell className="py-4 align-top whitespace-normal">
                           <ModelCell summary={run.metadata?.summary} />
-                          <div className="mt-2">
-                            <SummaryCell summary={run.metadata?.summary} locale={locale} />
-                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 align-top whitespace-normal">
+                          <SummaryCell summary={run.metadata?.summary} locale={locale} />
                         </TableCell>
                         <TableCell className="py-4 align-top whitespace-normal">
                           <TokenCell tokenUsage={run.metadata?.summary?.tokenUsage} locale={locale} />
-                          <div className="mt-2">
-                            <CostCell
-                              cost={calculateRunCost(run.metadata?.summary, exchangeRate)}
-                              locale={locale}
-                            />
-                          </div>
+                        </TableCell>
+                        <TableCell className="py-4 align-top whitespace-normal">
+                          <CostCell
+                            cost={calculateRunCost(run.metadata?.summary, exchangeRate)}
+                            locale={locale}
+                          />
                         </TableCell>
                         <TableCell className="py-4 align-top text-[13px] text-muted-foreground tabular-nums">
                           <div>{formatDateTime(run.startedAt, locale)}</div>
+                        </TableCell>
+                        <TableCell className="py-4 align-top text-[12px] tabular-nums">
                           <div
                             className={cn(
-                              "mt-1 text-[12px] tabular-nums",
+                              "tabular-nums",
                               run.status === "running"
                                 ? "font-medium text-status-warning"
                                 : "text-muted-foreground"
