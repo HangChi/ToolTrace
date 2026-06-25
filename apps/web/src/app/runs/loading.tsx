@@ -5,7 +5,7 @@ export default function RunsLoading() {
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border/80 bg-background/85">
-        <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-3 sm:px-6 lg:px-8 2xl:px-10">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
               <Skeleton className="h-9 w-48" />
@@ -20,7 +20,7 @@ export default function RunsLoading() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
+      <section className="w-full px-4 py-5 sm:px-6 lg:px-8 2xl:px-10">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="py-0">

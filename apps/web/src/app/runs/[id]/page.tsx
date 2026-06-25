@@ -178,7 +178,7 @@ export default async function RunDetailPage({
     <main id="main-content" className="min-h-screen bg-background text-foreground">
       <AutoRefresh />
       <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl">
-        <div className="mx-auto max-w-[1800px] px-4 py-3 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-3 sm:px-6 lg:px-8 2xl:px-10">
           <div className="flex items-center justify-between gap-3">
             <Button variant="ghost" size="sm" className="-ml-2" asChild>
               <Link href={localizedHref("/runs", locale)}>
@@ -211,7 +211,7 @@ export default async function RunDetailPage({
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1800px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8">
+      <section className="grid w-full gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8 2xl:px-10">
         <Card className="overflow-hidden py-0">
           <div className="border-b border-border/80 bg-surface-raised px-4 py-4 sm:px-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

@@ -5,7 +5,7 @@ export default function RunDetailLoading() {
   return (
     <main className="min-h-screen bg-background">
       <header className="border-b border-border/80 bg-background/85">
-        <div className="mx-auto max-w-[1800px] px-4 py-3 sm:px-6 lg:px-8">
+        <div className="w-full px-4 py-3 sm:px-6 lg:px-8 2xl:px-10">
           <div className="flex items-center justify-between gap-3">
             <Skeleton className="h-8 w-32" />
             <div className="flex items-center gap-2">
@@ -27,7 +27,7 @@ export default function RunDetailLoading() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1800px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8">
+      <section className="grid w-full gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-8 2xl:px-10">
         <Card className="overflow-hidden py-0">
           <div className="space-y-2 border-b border-border/80 bg-surface-raised px-5 py-4">
             <Skeleton className="h-4 w-32" />
