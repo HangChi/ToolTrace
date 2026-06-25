@@ -1,19 +1,9 @@
-export type InspectableEvent = {
-  name: string;
-  type: string;
-  status: string;
-  error?: {
-    message: string;
-    stack?: string;
-    code?: string;
-  };
-  metadata?: {
-    tokenUsage?: {
-      total: number;
-    };
-    [key: string]: unknown;
-  };
-};
+import type { DashboardTraceEvent } from "@agent-trace/schema";
+
+export type InspectableEvent = Pick<
+  DashboardTraceEvent,
+  "error" | "metadata" | "name" | "status" | "type"
+>;
 
 export type FailureInsight = {
   eventName: string;

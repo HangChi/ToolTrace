@@ -1,7 +1,22 @@
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 
-import type { CreateRun, CreateTraceEvent, Run, UpdateRun } from "@agent-trace/schema";
+import type {
+  CreateRun,
+  CreateTraceEvent,
+  DashboardEventFilters,
+  DashboardEventPage,
+  DashboardEventVisibility,
+  DashboardModelUsage,
+  DashboardRun,
+  DashboardRunMetadata,
+  DashboardRunSummary,
+  DashboardTraceEvent,
+  DashboardTraceMetadata,
+  Run,
+  TokenUsage,
+  UpdateRun
+} from "@agent-trace/schema";
 
 import { createSqliteDatabase, db as defaultDb } from "./db.js";
 import { events, runs } from "./schema.js";
@@ -12,58 +27,17 @@ type ListRunsOptions = {
   includeUntracked?: boolean;
 };
 
-type TokenUsageSummary = {
-  input: number;
-  output: number;
-  total: number;
-  cachedInput?: number;
-  cacheCreationInput?: number;
-  cacheReadInput?: number;
-  reasoningOutput?: number;
-  estimated?: boolean;
-};
-
-type ModelUsageSummary = {
-  model: string;
-  provider?: string;
-  tokenUsage: TokenUsageSummary;
-};
-
-type EventSummary = {
-  commandCount: number;
-  toolCount: number;
-  mcpCount: number;
-  skillCount: number;
-  promptCount: number;
-  turnCount: number;
-  tokenUsage: TokenUsageSummary;
-  unmodeledTokenUsage: TokenUsageSummary;
-  models: string[];
-  modelUsage: ModelUsageSummary[];
-  commands: string[];
-  tools: string[];
-  mcpTools: string[];
-  skills: string[];
+type EventSummary = DashboardRunSummary & {
+  unmodeledTokenUsage: TokenUsage;
   hasErrorEvent: boolean;
   lastEventAt?: string;
 };
 
-type EventVisibility = "display" | "hidden" | "all";
-
-type EventFilters = {
-  q?: string;
-  status?: string;
-  type?: string;
-  category?: string;
-};
-
-type ListEventsOptions = EventFilters & {
-  visibility?: EventVisibility;
+type ListEventsOptions = DashboardEventFilters & {
+  visibility?: DashboardEventVisibility;
   page?: number;
   pageSize?: number;
 };
-
-type PublicTraceEvent = Awaited<ReturnType<typeof listEventsByRunId>>[number];
 
 const defaultStaleRunMinutes = 30;
 const defaultEventPageSize = 100;
@@ -214,7 +188,7 @@ export async function createEvent(
 export async function listRuns(
   options: ListRunsOptions = {},
   database: Database = defaultDb
-) {
+): Promise<DashboardRun[]> {
   const rows = await database.select().from(runs).orderBy(desc(runs.startedAt));
   const eventRows = await database.select().from(events);
   const summaries = summarizeEventsByRun(eventRows);
@@ -257,7 +231,7 @@ export async function listRuns(
 export async function listEventsByRunId(
   runId: string,
   database: Database = defaultDb
-) {
+): Promise<DashboardTraceEvent[]> {
   const rows = await database
     .select()
     .from(events)
@@ -284,7 +258,7 @@ export async function listEventsPageByRunId(
   runId: string,
   options: ListEventsOptions = {},
   database: Database = defaultDb
-) {
+): Promise<DashboardEventPage> {
   const allEvents = await listEventsByRunId(runId, database);
   const visibility = normalizeVisibility(options.visibility);
   const pageSize = normalizePageSize(options.pageSize);
@@ -370,7 +344,10 @@ function ensureColumn(
   sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
 }
 
-function mergeRunMetadata(metadata: unknown, summary: EventSummary | undefined) {
+function mergeRunMetadata(
+  metadata: unknown,
+  summary: EventSummary | undefined
+): DashboardRunMetadata | undefined {
   const base = normalizeMetadataForDisplay(metadata);
 
   if (summary === undefined) {
@@ -383,7 +360,7 @@ function mergeRunMetadata(metadata: unknown, summary: EventSummary | undefined) 
   };
 }
 
-function normalizeMetadataForDisplay(metadata: unknown) {
+function normalizeMetadataForDisplay(metadata: unknown): DashboardTraceMetadata {
   const base = { ...asRecord(metadata) };
 
   if (
@@ -403,7 +380,7 @@ function normalizeMetadataForDisplay(metadata: unknown) {
     base.surfaceSource = "legacy-unmarked";
   }
 
-  return base;
+  return base as DashboardTraceMetadata;
 }
 
 function summarizeEventsByRun(eventRows: Array<typeof events.$inferSelect>) {
@@ -619,7 +596,7 @@ function formatMcpTool(
     : (toolName ?? fallback);
 }
 
-function toPublicSummary(summary: EventSummary) {
+function toPublicSummary(summary: EventSummary): DashboardRunSummary {
   const { hasErrorEvent, lastEventAt, unmodeledTokenUsage, ...publicSummary } = summary;
 
   return {
@@ -703,7 +680,7 @@ function isReasonableTimestampMs(value: number) {
   return Number.isFinite(value) && value >= 946_684_800_000;
 }
 
-function addTokenUsage(target: TokenUsageSummary, source: Record<string, unknown>) {
+function addTokenUsage(target: TokenUsage, source: Record<string, unknown>) {
   target.input += getNumber(source.input);
   target.output += getNumber(source.output);
   target.total += getNumber(source.total);
@@ -718,7 +695,7 @@ function addTokenUsage(target: TokenUsageSummary, source: Record<string, unknown
 }
 
 function addModelUsage(
-  modelUsage: ModelUsageSummary[],
+  modelUsage: DashboardModelUsage[],
   model: string,
   provider: string | undefined,
   source: Record<string, unknown>
@@ -762,7 +739,7 @@ function attachUnmodeledTokenUsageToSingleModel(summary: EventSummary) {
   addModelUsage(summary.modelUsage, model, provider, summary.unmodeledTokenUsage);
 }
 
-function applyEventFilters(events: PublicTraceEvent[], filters: EventFilters) {
+function applyEventFilters(events: DashboardTraceEvent[], filters: DashboardEventFilters) {
   const query = filters.q?.trim().toLowerCase() ?? "";
   const status = normalizeFilter(filters.status);
   const type = normalizeFilter(filters.type);
@@ -789,7 +766,7 @@ function applyEventFilters(events: PublicTraceEvent[], filters: EventFilters) {
   });
 }
 
-function getEventSearchText(event: PublicTraceEvent) {
+function getEventSearchText(event: DashboardTraceEvent) {
   const metadata = asRecord(event.metadata);
 
   return [
@@ -814,7 +791,7 @@ function getEventSearchText(event: PublicTraceEvent) {
     .join(" ");
 }
 
-function isDisplayEvent(event: PublicTraceEvent) {
+function isDisplayEvent(event: DashboardTraceEvent) {
   const category = getEventCategory(event);
 
   return (
@@ -827,7 +804,7 @@ function isDisplayEvent(event: PublicTraceEvent) {
   );
 }
 
-function getEventCategory(event: PublicTraceEvent) {
+function getEventCategory(event: DashboardTraceEvent) {
   const metadata = asRecord(event.metadata);
   const category = getString(metadata.category);
 
@@ -866,7 +843,9 @@ function getEventCategory(event: PublicTraceEvent) {
   return metadata.tokenUsage ? "tokens" : undefined;
 }
 
-function normalizeVisibility(value: EventVisibility | undefined): EventVisibility {
+function normalizeVisibility(
+  value: DashboardEventVisibility | undefined
+): DashboardEventVisibility {
   return value === "hidden" || value === "all" ? value : "display";
 }
 
@@ -886,7 +865,7 @@ function normalizePageSize(value: number | undefined) {
   return Math.min(Math.floor(value), maxEventPageSize);
 }
 
-function sortEventsDesc(events: PublicTraceEvent[]) {
+function sortEventsDesc(events: DashboardTraceEvent[]) {
   return [...events].sort((a, b) => getDateMs(b.timestamp) - getDateMs(a.timestamp));
 }
 
@@ -896,7 +875,7 @@ function getObjectString(value: unknown, key: string) {
   return typeof item === "string" && item.length > 0 ? item : undefined;
 }
 
-function getSourceMetadata(events: PublicTraceEvent[]) {
+function getSourceMetadata(events: DashboardTraceEvent[]) {
   return events.find((event) => asRecord(event.metadata).agent !== undefined)?.metadata ?? {};
 }
 

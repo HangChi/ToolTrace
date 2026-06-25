@@ -1,25 +1,6 @@
-type TokenUsage = {
-  input?: number;
-  output?: number;
-  total?: number;
-  cachedInput?: number;
-  cacheCreationInput?: number;
-  cacheReadInput?: number;
-  reasoningOutput?: number;
-  estimated?: boolean;
-};
+import type { DashboardModelUsage, DashboardRunSummary, TokenUsage } from "@agent-trace/schema";
 
-type ModelUsage = {
-  model: string;
-  provider?: string;
-  tokenUsage: TokenUsage;
-};
-
-type CostSummary = {
-  tokenUsage?: TokenUsage;
-  models?: string[];
-  modelUsage?: ModelUsage[];
-};
+type CostSummary = Partial<Pick<DashboardRunSummary, "modelUsage" | "models" | "tokenUsage">>;
 
 type ModelPricing = {
   provider: "openai" | "anthropic" | "deepseek";
@@ -157,7 +138,7 @@ export function calculateRunCost(summary: CostSummary | undefined, exchangeRate?
   };
 }
 
-function getCostUsages(summary: CostSummary | undefined): ModelUsage[] {
+function getCostUsages(summary: CostSummary | undefined): DashboardModelUsage[] {
   if (!summary) {
     return [];
   }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { DashboardRun, DashboardRunMetadata, DashboardRunSummary } from "@agent-trace/schema";
 import { Activity, AlertCircle, Cpu, Play, Server } from "lucide-react";
 
 import {
@@ -42,54 +43,6 @@ import { calculateRunCost, getUsdCnyRate, type RunCost } from "~/lib/cost";
 import { ResizableTableColumns } from "./resizable-table-columns";
 
 export const dynamic = "force-dynamic";
-
-type Run = {
-  id: string;
-  name: string;
-  status: "running" | "success" | "error" | string;
-  startedAt: string;
-  endedAt?: string;
-  error?: string;
-  metadata?: AgentMetadata;
-};
-
-type AgentMetadata = {
-  agent?: string;
-  surface?: string;
-  redactionLevel?: string;
-  summary?: RunSummary;
-};
-
-type RunSummary = {
-  commandCount?: number;
-  toolCount?: number;
-  mcpCount?: number;
-  skillCount?: number;
-  promptCount?: number;
-  turnCount?: number;
-  commands?: string[];
-  tools?: string[];
-  mcpTools?: string[];
-  skills?: string[];
-  models?: string[];
-  modelUsage?: Array<{
-    model: string;
-    provider?: string;
-    tokenUsage: TokenUsage;
-  }>;
-  tokenUsage?: TokenUsage;
-};
-
-type TokenUsage = {
-  input?: number;
-  output?: number;
-  total?: number;
-  cachedInput?: number;
-  cacheCreationInput?: number;
-  cacheReadInput?: number;
-  reasoningOutput?: number;
-  estimated?: boolean;
-};
 
 type RunsSearchParams = Promise<{ lang?: string | string[] }>;
 
@@ -475,7 +428,7 @@ function ColumnResizeHandle({
   );
 }
 
-async function getRuns(locale: Locale): Promise<{ runs: Run[]; error?: string }> {
+async function getRuns(locale: Locale): Promise<{ runs: DashboardRun[]; error?: string }> {
   try {
     const response = await fetch(`${collectorUrl}/runs`, { cache: "no-store" });
 
@@ -489,7 +442,7 @@ async function getRuns(locale: Locale): Promise<{ runs: Run[]; error?: string }>
       };
     }
 
-    return { runs: (await response.json()) as Run[] };
+    return { runs: (await response.json()) as DashboardRun[] };
   } catch (err) {
     return {
       runs: [],
@@ -553,7 +506,7 @@ function MetricCard({
   );
 }
 
-function getAgentSourceSummary(runs: Run[], locale: Locale) {
+function getAgentSourceSummary(runs: DashboardRun[], locale: Locale) {
   const counts = new Map<string, number>();
 
   for (const run of runs) {
@@ -576,7 +529,7 @@ function getAgentSourceSummary(runs: Run[], locale: Locale) {
   };
 }
 
-function SourceCell({ metadata, locale }: { metadata?: AgentMetadata; locale: Locale }) {
+function SourceCell({ metadata, locale }: { metadata?: DashboardRunMetadata; locale: Locale }) {
   const agent = metadata?.agent ?? "manual";
   const details = [
     formatSurface(metadata?.surface, locale),
@@ -595,7 +548,7 @@ function SourceCell({ metadata, locale }: { metadata?: AgentMetadata; locale: Lo
   );
 }
 
-function ModelCell({ summary }: { summary?: RunSummary }) {
+function ModelCell({ summary }: { summary?: DashboardRunSummary }) {
   const models = getSummaryModels(summary);
 
   if (models.length === 0) {
@@ -612,7 +565,7 @@ function ModelCell({ summary }: { summary?: RunSummary }) {
   );
 }
 
-function SummaryCell({ summary, locale }: { summary?: RunSummary; locale: Locale }) {
+function SummaryCell({ summary, locale }: { summary?: DashboardRunSummary; locale: Locale }) {
   if (!summary || getSummaryTotal(summary) === 0) {
     return <span className="text-[13px] text-muted-foreground">-</span>;
   }
@@ -686,7 +639,7 @@ function CostCell({
   );
 }
 
-function getSummaryModels(summary: RunSummary | undefined) {
+function getSummaryModels(summary: DashboardRunSummary | undefined) {
   const models = summary?.models ?? summary?.modelUsage?.map((usage) => usage.model) ?? [];
 
   return [...new Set(models)].filter((model) => model.length > 0);
@@ -696,7 +649,7 @@ function TokenCell({
   tokenUsage,
   locale
 }: {
-  tokenUsage?: RunSummary["tokenUsage"];
+  tokenUsage?: DashboardRunSummary["tokenUsage"];
   locale: Locale;
 }) {
   const total = tokenUsage?.total ?? 0;
@@ -720,7 +673,10 @@ function TokenCell({
   );
 }
 
-function formatTokenUsageParts(tokenUsage: NonNullable<RunSummary["tokenUsage"]>, locale: Locale) {
+function formatTokenUsageParts(
+  tokenUsage: NonNullable<DashboardRunSummary["tokenUsage"]>,
+  locale: Locale
+) {
   const inputLabel = locale === "zh" ? "\u8f93\u5165" : "in";
   const outputLabel = locale === "zh" ? "\u8f93\u51fa" : "out";
   const reasoningLabel = locale === "zh" ? "\u63a8\u7406" : "reasoning";
@@ -742,7 +698,7 @@ function getTokenUsageTitle(locale: Locale) {
     : "in=prompt/context tokens; out=visible generated tokens; reasoning=hidden reasoning tokens, usually billed as output.";
 }
 
-function getSummaryTotal(summary: RunSummary) {
+function getSummaryTotal(summary: DashboardRunSummary) {
   return (
     (summary.commandCount ?? 0) +
     (summary.toolCount ?? 0) +

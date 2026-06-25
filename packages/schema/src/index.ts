@@ -104,3 +104,89 @@ export type CreateTraceEvent = z.infer<typeof createTraceEventSchema>;
 export type Run = z.infer<typeof runSchema>;
 export type CreateRun = z.infer<typeof createRunSchema>;
 export type UpdateRun = z.infer<typeof updateRunSchema>;
+
+export type DashboardModelUsage = {
+  model: string;
+  provider?: string;
+  tokenUsage: TokenUsage;
+};
+
+export type DashboardRunSummary = {
+  commandCount: number;
+  toolCount: number;
+  mcpCount: number;
+  skillCount: number;
+  promptCount: number;
+  turnCount: number;
+  tokenUsage: TokenUsage;
+  models: string[];
+  modelUsage: DashboardModelUsage[];
+  commands: string[];
+  tools: string[];
+  mcpTools: string[];
+  skills: string[];
+};
+
+export type DashboardTraceMetadata = TraceMetadata & {
+  category?: string;
+  command?: string;
+  toolName?: string;
+  toolKind?: string;
+  mcpServer?: string;
+  mcpTool?: string;
+  skillName?: string;
+  source?: string;
+  surfaceSource?: string;
+};
+
+export type DashboardRunMetadata = DashboardTraceMetadata & {
+  summary?: DashboardRunSummary;
+};
+
+export type DashboardRun = Omit<Run, "metadata" | "status"> & {
+  status: TraceStatus | string;
+  metadata?: DashboardRunMetadata;
+};
+
+export type DashboardTraceEvent = Omit<TraceEvent, "metadata" | "status" | "type"> & {
+  status: TraceStatus | string;
+  type: TraceEventType | string;
+  metadata?: DashboardTraceMetadata;
+};
+
+export type DashboardEventVisibility = "display" | "hidden" | "all";
+
+export type DashboardEventFilters = {
+  q?: string;
+  status?: string;
+  type?: string;
+  category?: string;
+};
+
+export type DashboardEventPage = {
+  events: DashboardTraceEvent[];
+  counts: {
+    total: number;
+    display: number;
+    hidden: number;
+    matching: number;
+  };
+  facets: {
+    types: string[];
+    categories: string[];
+  };
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+  summary: {
+    totalTokens: number;
+    totalDurationMs: number;
+    failedEvents: number;
+    sourceMetadata: DashboardTraceMetadata;
+    errorEvents: DashboardTraceEvent[];
+  };
+  visibility: DashboardEventVisibility;
+};

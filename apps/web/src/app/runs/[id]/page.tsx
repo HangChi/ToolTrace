@@ -1,4 +1,9 @@
 import Link from "next/link";
+import type {
+  DashboardEventPage,
+  DashboardEventVisibility,
+  DashboardTraceEvent
+} from "@agent-trace/schema";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -41,55 +46,6 @@ import { inspectFailures } from "./failure-inspector";
 
 export const dynamic = "force-dynamic";
 
-type TokenUsage = {
-  input: number;
-  output: number;
-  total: number;
-  cachedInput?: number;
-  cacheCreationInput?: number;
-  cacheReadInput?: number;
-  reasoningOutput?: number;
-  estimated?: boolean;
-  method?: string;
-  source?: string;
-};
-
-type TraceEvent = {
-  id: string;
-  runId: string;
-  parentId?: string;
-  type: string;
-  name: string;
-  status: "running" | "success" | "error" | string;
-  timestamp: string;
-  durationMs?: number;
-  input?: unknown;
-  output?: unknown;
-  error?: { message: string; stack?: string; code?: string };
-  metadata?: {
-    agent?: string;
-    surface?: string;
-    sessionId?: string;
-    turnId?: string;
-    promptId?: string;
-    toolUseId?: string;
-    hookEvent?: string;
-    permissionMode?: string;
-    redactionLevel?: string;
-    provider?: string;
-    model?: string;
-    category?: string;
-    command?: string;
-    toolName?: string;
-    toolKind?: string;
-    mcpServer?: string;
-    mcpTool?: string;
-    skillName?: string;
-    tokenUsage?: TokenUsage;
-    [key: string]: unknown;
-  };
-};
-
 type SearchParamValue = string | string[] | undefined;
 
 type DetailSearchParams = Promise<{
@@ -108,36 +64,6 @@ type EventFilters = {
   status: string;
   type: string;
   category: string;
-};
-
-type EventVisibility = "display" | "hidden" | "all";
-
-type EventPageResult = {
-  events: TraceEvent[];
-  counts: {
-    total: number;
-    display: number;
-    hidden: number;
-    matching: number;
-  };
-  facets: {
-    types: string[];
-    categories: string[];
-  };
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-  summary: {
-    totalTokens: number;
-    totalDurationMs: number;
-    failedEvents: number;
-    sourceMetadata: NonNullable<TraceEvent["metadata"]>;
-    errorEvents: TraceEvent[];
-  };
-  visibility: EventVisibility;
 };
 
 const collectorUrl = process.env.AGENT_TRACE_API_URL ?? process.env.TOOLTRACE_API_URL ?? "http://localhost:4319";
@@ -346,9 +272,9 @@ async function getEventPage(
   runId: string,
   locale: Locale,
   filters: EventFilters,
-  visibility: EventVisibility,
+  visibility: DashboardEventVisibility,
   page: number
-): Promise<{ result?: EventPageResult; error?: string }> {
+): Promise<{ result?: DashboardEventPage; error?: string }> {
   try {
     const params = new URLSearchParams({
       visibility,
@@ -379,7 +305,7 @@ async function getEventPage(
       };
     }
 
-    return { result: (await response.json()) as EventPageResult };
+    return { result: (await response.json()) as DashboardEventPage };
   } catch (err) {
     return {
       error:
@@ -432,9 +358,9 @@ function FilterBar({
   runId: string;
   locale: Locale;
   filters: EventFilters;
-  facets: EventPageResult["facets"];
+  facets: DashboardEventPage["facets"];
   resultCount: number;
-  visibility: EventVisibility;
+  visibility: DashboardEventVisibility;
 }) {
   const text = copy[locale];
   const typeOptions = facets.types;
@@ -549,8 +475,8 @@ function PaginationControls({
   runId: string;
   locale: Locale;
   filters: EventFilters;
-  visibility: EventVisibility;
-  pagination: EventPageResult["pagination"];
+  visibility: DashboardEventVisibility;
+  pagination: DashboardEventPage["pagination"];
 }) {
   const text = copy[locale];
   const previousPage = Math.max(1, pagination.page - 1);
@@ -589,7 +515,7 @@ function PaginationControls({
   );
 }
 
-function Timeline({ events, locale }: { events: TraceEvent[]; locale: Locale }) {
+function Timeline({ events, locale }: { events: DashboardTraceEvent[]; locale: Locale }) {
   const text = copy[locale];
 
   return (
@@ -672,7 +598,7 @@ function Timeline({ events, locale }: { events: TraceEvent[]; locale: Locale }) 
   );
 }
 
-function EventPrimaryDetail({ event, locale }: { event: TraceEvent; locale: Locale }) {
+function EventPrimaryDetail({ event, locale }: { event: DashboardTraceEvent; locale: Locale }) {
   const command = event.metadata?.command ?? getObjectString(event.input, "command");
   const tokenUsage = event.metadata?.tokenUsage;
   const category = getEventCategory(event);
@@ -747,7 +673,7 @@ function getTokenUsageLabels(locale: Locale) {
       };
 }
 
-function CategoryBadge({ event, locale }: { event: TraceEvent; locale: Locale }) {
+function CategoryBadge({ event, locale }: { event: DashboardTraceEvent; locale: Locale }) {
   const labels: Record<string, string> = {
     command: locale === "zh" ? "命令" : "command",
     tool: locale === "zh" ? "工具" : "tool",
@@ -777,7 +703,7 @@ function parseEventFilters(searchParams: Awaited<DetailSearchParams>): EventFilt
   };
 }
 
-function parseVisibility(searchParams: Awaited<DetailSearchParams>): EventVisibility {
+function parseVisibility(searchParams: Awaited<DetailSearchParams>): DashboardEventVisibility {
   const visibility = getSearchParam(searchParams.visibility);
 
   if (visibility === "hidden" || visibility === "all") {
@@ -793,7 +719,7 @@ function parsePage(value: SearchParamValue) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
 }
 
-function getEventCategory(event: TraceEvent) {
+function getEventCategory(event: DashboardTraceEvent) {
   const metadata = event.metadata;
   const category = metadata?.category;
 
@@ -851,13 +777,18 @@ function detailHref(
   runId: string,
   locale: Locale,
   filters: EventFilters,
-  visibility: EventVisibility,
+  visibility: DashboardEventVisibility,
   page: number
 ) {
   return localizedHref(detailPath(runId, filters, visibility, page), locale);
 }
 
-function detailPath(runId: string, filters: EventFilters, visibility: EventVisibility, page: number) {
+function detailPath(
+  runId: string,
+  filters: EventFilters,
+  visibility: DashboardEventVisibility,
+  page: number
+) {
   const params = new URLSearchParams();
 
   if (filters.q) {
@@ -901,7 +832,7 @@ function formatFilterCount(shown: number, total: number, locale: Locale) {
     : `Showing ${shown.toLocaleString()} / ${total.toLocaleString()}`;
 }
 
-function hasTraceIds(event: TraceEvent) {
+function hasTraceIds(event: DashboardTraceEvent) {
   return Boolean(
     event.metadata?.sessionId ||
       event.metadata?.turnId ||
