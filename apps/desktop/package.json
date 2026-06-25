@@ -1,6 +1,6 @@
 {
   "name": "@agent-trace/desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local-first AI agent debugging dashboard.",
   "author": "Agent-Trace",
   "private": true,
@@ -16,7 +16,7 @@
   "devDependencies": {
     "@agent-trace/server": "workspace:*",
     "@agent-trace/web": "workspace:*",
-    "electron": "^42.4.1",
+    "electron": "^41.9.0",
     "electron-builder": "^26.15.3",
     "sharp": "^0.35.2"
   },
@@ -24,6 +24,11 @@
     "appId": "dev.agent-trace.desktop",
     "productName": "Agent-Trace",
     "compression": "maximum",
+    "afterPack": "scripts/after-pack.cjs",
+    "electronLanguages": [
+      "en-US",
+      "zh-CN"
+    ],
     "directories": {
       "output": "release"
     },
@@ -33,10 +38,6 @@
       "package.json"
     ],
     "extraResources": [
-      {
-        "from": "resources/node",
-        "to": "node"
-      },
       {
         "from": "resources/archives",
         "to": "archives"

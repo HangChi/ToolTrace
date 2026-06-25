@@ -572,27 +572,16 @@ function spawnPnpm(args, env) {
 }
 
 function spawnPackagedNode(scriptPath, env, cwd) {
-  return spawnManaged(getPackagedNodeExecutable(), [scriptPath], {
+  // Reuse Electron's bundled Node.js runtime instead of shipping a separate
+  // node.exe. ELECTRON_RUN_AS_NODE makes the Electron binary behave as plain Node.
+  return spawnManaged(process.execPath, [scriptPath], {
     cwd,
     env: {
       ...env,
-      NODE_ENV: "production"
+      NODE_ENV: "production",
+      ELECTRON_RUN_AS_NODE: "1"
     }
   });
-}
-
-function getPackagedNodeExecutable() {
-  const executable = path.join(
-    process.resourcesPath,
-    "node",
-    process.platform === "win32" ? "node.exe" : "node"
-  );
-
-  if (!fs.existsSync(executable)) {
-    throw new Error(`Packaged Node runtime was not found at ${executable}.`);
-  }
-
-  return executable;
 }
 
 function spawnManaged(command, args, options) {
