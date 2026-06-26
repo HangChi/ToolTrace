@@ -316,16 +316,16 @@ function buildHandler(
     ...surfaceParams
   });
 
+  const posixCommand = `curl -s -m 5 -o /dev/null -X POST "${url}" -H "Content-Type: application/json" --data-binary "@-" >/dev/null 2>&1 || true`;
+  const windowsCommand = `curl.exe -s -m 5 -o NUL -X POST "${url}" -H "Content-Type: application/json" --data-binary "@-" >NUL 2>NUL || exit /b 0`;
+
   if (target === "claude-code") {
     return {
-      type: "http",
-      url,
+      type: "command",
+      command: process.platform === "win32" ? windowsCommand : posixCommand,
       timeout: 5
     };
   }
-
-  const posixCommand = `curl -sS -m 5 -o /dev/null -X POST "${url}" -H "Content-Type: application/json" --data-binary "@-"`;
-  const windowsCommand = `curl.exe -sS -m 5 -o NUL -X POST "${url}" -H "Content-Type: application/json" --data-binary "@-"`;
 
   return {
     type: "command",
